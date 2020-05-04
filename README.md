@@ -33,6 +33,7 @@ Details
 
 Hidden console
 --------------
+
 The usual recommendation to run Python GUI applications is with `Pythonw.exe`, which
 does not create a console window. However, when running under `Pythonw.exe`, a simple
 `print()` call will raise an exeption, and certain low-level output redirection of
@@ -43,3 +44,8 @@ ensure output filehandles exist from the perspective of subprocesses, in Windows
 launcher script runs your application in a subprocess using `Python.exe`, but with the
 `CREATE_NO_WINDOW` flag so that the console exists, but is not visible.
 
+
+Limitations
+-----------
+
+No pip install --user because we can't work out where the scripts directory is

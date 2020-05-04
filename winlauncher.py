@@ -4,77 +4,114 @@ from pathlib import Path
 import sysconfig
 import hashlib
 import importlib.util
+import json
+
+CONFIG_FILENAME = 'winlauncher.json'
+
+
+def _guess_currently_running_module():
+    """Look in all parent directories of sys.argv[0] for a winlauncher.json config file,
+    and return the closest parent module of sys.argv[0], if any."""
+    script = Path(sys.argv[0]).absolute()
+    parent = script.parent
+    while parent.parent != parent:
+        parent = parent.parent
+        if os.path.exists(parent / CONFIG_FILENAME):
+            with open(parent / CONFIG_FILENAME) as f:
+                config = json.load(f)
+                # Find the closest parent module, if any, of sys.argv[0]
+                modules = sorted(
+                    config['modules'],
+                    key=lambda module: len(module.split('.')),
+                    reverse=True,
+                )
+                for module in modules:
+                    base, *sub_parts = module.split('.')
+                    if base != parent.basename():
+                        continue
+                    module_path = Path(parent, *sub_parts)
+                    if os.path.normcase(script).startswith(
+                        os.path.normpath(module_path)
+                    ):
+                        return module
+                msg = f"""Could not determine the current module: {script} is not a
+                    submodule of any module in: {parent / CONFIG_FILENAME}."""
+                raise LookupError(' '.join(msg.split()))
+    msg = f"""Could not determine the current module: could not find a
+        '{CONFIG_FILENAME}' in any parent directories of {script}"""
+    raise LookupError(' '.join(msg.split()))
+
+
+def _get_package_directory(module_name):
+    """Return the path of the package directory that the given module is in."""
+    base_module = module_name.split('.', 1)[0]
+    spec = importlib.util.find_spec(base_module)
+    if spec is None or spec.origin is None:
+        raise ModuleNotFoundError(base_module)
+    if not spec.parent:
+        msg = f'{base_module} is not a package'
+        raise ValueError(msg)
+    return os.path.dirname(spec.origin)
 
 
 class App:
-    def __init__(self, module_name):
+    def __init__(self, module_name=None):
         """Object for managing shortcut creation and Windows AppUserModelID
-        configuration. `company_name` must be an organisation or company name in
-        CamelCase. `product_name` is optional, it should be used if there are multiple
-        applications under the same product umbrella, and it should also be in
-        CamelCase. `launcher_name_suffix` is a suffix to be appended to the
-        human-readable application launchers that will be created. If given, the
-        launcher names with be of the format "<appname> - <suffix>" with a hyphen with
-        spaces around it inserted."""
-        self.company_name = company_name
-        self.product_name = product_name
-        self.launcher_name_suffix = launcher_name_suffix
+        configuration for a a Python module configured to run as an app via winlauncher.
+        If module_name is None, it will be guessed by looking in parent directories of
+        `sys.argv[0]` until a 'winlauncher.json' config file is found, reading it, and
+        seeing if sys.argv[0] is equal to or a submodule of one of the modules defined
+        there.
+        """
+        if module_name is None:
+            module_name = _guess_currently_running_module()
+        self.module_name = module_name
+        self.package_directory = _get_package_directory(module_name)
+        config = self._load_config()
+        self.company_name = config['company_name']
+        self.product_name = config.get('product_name', None)
+        module_config = config['modules'][module_name]
+        self.display_name = module_config.get('display_name', module_name)
+        self.ico_file = module_config.get(
+            'ico', Path(self.package_directory, f'{module_name}.ico')
+        )
+        self.svg_file = module_config.get(
+            'svg', Path(self.package_directory, f'{module_name}.svg')
+        )
+        self.launcher_script_path = self._get_launcher_script_path()
+        self.appid = self._get_appid()
 
-    def get_package_directory(self, appname=None):
-        """Return the path of the package directory for the given `appname`, assuming it
-        corresponds to an importable package. If `appname` is not given, it will be as
-        returned by `self.get_currently_running_appname()`"""
-        spec = importlib.util.find_spec(appname)
-        if spec is None or spec.origin is None:
-            raise ModuleNotFoundError(appname)
-        if not spec.parent:
-            msg = f'{appname} is not a package'
-            raise ValueError(msg)
-        return os.path.dirname(spec.origin)
+    def _load_config(self):
+        """Load 'winlauncher.json' from the module package directory and return it"""
+        with open(Path(self.package_directory, CONFIG_FILENAME)) as f:
+            return json.load(f)
 
-    def get_currently_running_appname(self):
-        """Determine the currently running module name or package name from
-        `sys.argv[0]` assuming that it is either to a toplevel module or the
-        `__main__.py` of a package."""
-        script = Path(sys.argv[0]).absolute()
-        if script.stem == '__main__':
-            return script.parent.stem
-        else:
-            return script.stem
-
-    def get_script_path(self, appname=None):
-        """Get the path to the script for launching the app. It is assumed to be called
-        <appname> and be in the bin or Scripts directory of the current Python
-        interpreter as returned by `sysconfig.get_path('scripts')`. As such it will not
-        be correct when used with `pip install --user` or any other custom options to
-        pip that modify the install prefix. If `appname` is not given, it will be as
-        returned by `self.get_currently_running_appname()`."""
-        if appname is None:
-            appname = self.get_currently_running_appname()
+    def _get_launcher_script_path(self):
+        """Get the path to the script for launching the app without a console. It is
+        assumed to be called <module_name> and be in the bin or Scripts directory of the
+        current Python interpreter as returned by `sysconfig.get_path('scripts')`. As
+        such it will not be correct when used with `pip install --user` or any other
+        custom options to pip that modify the install prefix."""
         # Look up the path to the launcher:
-        script_path = str(Path(sysconfig.get_path('scripts'), appname).absolute())
+        script_path = str(
+            Path(sysconfig.get_path('scripts'), self.module_name).absolute()
+        )
         if os.name == 'nt':
             return script_path + 'w.exe'
         return script_path
 
-    def get_appid(self, appname=None):
+    def _get_appid(self):
         """ Create a string identifying the application, for use in OS interfaces such
-        as as a Windows AppUserModelID. The required format of a windows AppUserModelID
-        is:
-        
-        CompanyName.ProductName.SubProduct.VersionInformation
-        
-        Where the last two fields are optional. If `product_name` was passed to the
-        contructor, then the format returned is:
+        as as a Windows AppUserModelID, or for the name of a Linux .desktop file. The
+        format we use in either case is:
 
-        CompanyName.ProductName.<CamelCaseAppName>.Python-<hexdigits>
+        CompanyName.ProductName.<CamelCaseModuleName>.Python-<hexdigits>
 
-        otherwise ProductName will be ommited. The last field contains a hash of the
-        path to the Python interpreter for the application, ensuring the appid is unique
-        to the Python environment.
+        ProductName is omitted if it was not present in the configuration. The last
+        field contains a hash of the path to the Python interpreter for the module,
+        ensuring the appid is unique to the Python environment. The module name is
+        converted to camel case, periods replaced with hyphens and underscores removed.
         """
-        if appname is None:
-            appname = self.get_currently_running_appname()
 
         # Hash the path to the Python interpreter so that we can include in the appid a
         # segment unique to the Python environment. Note the case-insensitivity - I've
@@ -84,121 +121,75 @@ class App:
             os.fsencode(os.path.normcase(sys.executable))
         ).hexdigest()[:16]
 
-        camelcase_appname = ''.join(s.capitalize() for s in appname.split('_'))
-        appid_parts = [self.company_name]
+        camelcase_modulename = ''.join(
+            s.capitalize()
+            for s in self.module_name.title().replace('_', '').replace('.', '-')
+        )
+
+        appid_parts = [
+            self.company_name,
+            camelcase_modulename,
+            f'Python-{interpreter_hash}',
+        ]
+
         if self.product_name is not None:
-            appid_parts.append(self.product_name)
-        appid_parts.append(camelcase_appname)
-        appid_parts.append('Python-' + interpreter_hash)
+            appid_parts.insert(1, self.product_name)
+
         return '.'.join(appid_parts)
 
-    def get_launcher_name(self, appname=None):
-        """Get a human readable name appropriate for naming the launcher. If `appname`
-        is not given, it will be as returned by
-        `self.get_currently_running_appname()`"""
-        # TODO conda envs
-        if appname is None:
-            appname = self.get_currently_running_appname()
-        if self.launcher_name_suffix is not None:
-            return f'{appname} - {self.launcher_name_suffix}'
-        return appname
-
-    def get_icon_path(self, appname=None, extension='.ico'):
-        """Return the path to the application .ico file if on Windows, or another format
-        (such as .svg) if `extension` is given. It is assumed that these are named
-        `<appname>.ico` or `<appname>.svg` and are directly within the `<appname>`
-        package directory. If `appname` is not given, it will be as returned by
-        `self.currently_running_appname()`"""
-        if appname is None:
-            appname = self.get_currently_running_appname
-        return os.path.join(self.get_package_directory(appname), appname) + extension
-
-    def set_window_appusermodel_id(self, window_id, appname=None):
-        """Set the Windows AppUserModelID settings for the given `window_id` to those
-        corresponding to the given `appname`. If `appname` is not given, it will be as
-        returned by `self.currently_running_appname()`. If `window_id` is None or we are
-        not on Windows, do nothing."""
+    def set_window_appusermodel_id(self, window_id):
+        """Set the Windows AppUserModelID settings for the given `window_id` to the
+        appid for the module. If `window_id` is None or we are not on Windows, this
+        method does nothing."""
         if window_id is None or not os.name == 'nt':
             return
 
         from win32com.propsys import propsys, pscon
-        import pythoncom
-
-        if appname is None:
-            appname = self.get_currently_running_appname()
 
         store = propsys.SHGetPropertyStoreForWindow(
             window_id, propsys.IID_IPropertyStore
         )
+        properties = {
+            pscon.PKEY_AppUserModel_ID: self.appid,
+            pscon.PKEY_AppUserModel_RelaunchCommand: self.launcher_script_path,
+            pscon.PKEY_AppUserModel_RelaunchDisplayNameResource: self.display_name,
+            pscon.PKEY_AppUserModel_RelaunchIconResource: self.ico_file,
+        }
 
-        # AppUserModelID
-        store.SetValue(
-            pscon.PKEY_AppUserModel_ID,
-            propsys.PROPVARIANTType(self.get_appid(appname), pythoncom.VT_LPWSTR),
-        )
-
-        # Relaunch command
-        store.SetValue(
-            pscon.PKEY_AppUserModel_RelaunchCommand,
-            propsys.PROPVARIANTType(self.get_script_path(appname), pythoncom.VT_LPWSTR),
-        )
-
-        # Launcher name
-        store.SetValue(
-            pscon.PKEY_AppUserModel_RelaunchDisplayNameResource,
-            propsys.PROPVARIANTType(
-                self.get_launcher_name(appname), pythoncom.VT_LPWSTR
-            ),
-        )
-
-        # Icon
-        store.SetValue(
-            pscon.PKEY_AppUserModel_RelaunchIconResource,
-            propsys.PROPVARIANTType(self.get_icon_path(appname), pythoncom.VT_LPWSTR),
-        )
-
+        for key, value in properties.items():
+            store.SetValue(key, propsys.PROPVARIANTType(value))
         store.Commit()
 
-    def add_to_start_menu(self, appname=None):
-        """Add a launcher for the given app to the start menu. If `appname` is not
-        given, it will be as returned by `self.currently_running_appname()`."""
+    def add_to_start_menu(self):
+        """Add a launcher for the module to the start menu."""
         from win32com.shell import shellcon
         from win32com.client import Dispatch
         from win32com.propsys import propsys, pscon
-        import pythoncom
 
         objShell = Dispatch('WScript.Shell')
         start_menu = objShell.SpecialFolders("Programs")
 
-        if appname is None:
-            appname = self.get_currently_running_appname()
-
-        launcher_name = self.get_launcher_name(appname)
-        shortcut_path = os.path.join(start_menu, launcher_name) + '.lnk'
-
+        shortcut_path = os.path.join(start_menu, self.display_name) + '.lnk'
         # Overwrite previously existing shortcuts of the same name:
         if os.path.exists(shortcut_path):
             os.unlink(shortcut_path)
 
         shortcut = objShell.CreateShortcut(shortcut_path)
-        shortcut.TargetPath = self.get_script_path(appname)
+        shortcut.TargetPath = self.launcher_script_path
         shortcut.WorkingDirectory = str(Path('~').expanduser)
-        shortcut.IconLocation = self.get_icon_path(appname)
-        shortcut.Description = launcher_name
+        shortcut.IconLocation = self.ico_file
+        shortcut.Description = self.display_name
         shortcut.save()
 
         # Edit the shortcut to associate the AppUserModel_ID with it:
         store = propsys.SHGetPropertyStoreFromParsingName(
             shortcut_path, None, shellcon.GPS_READWRITE, propsys.IID_IPropertyStore
         )
-        store.SetValue(
-            pscon.PKEY_AppUserModel_ID,
-            propsys.PROPVARIANTType(self.get_appid(appname), pythoncom.VT_LPWSTR),
-        )
+        store.SetValue(pscon.PKEY_AppUserModel_ID, propsys.PROPVARIANTType(self.appid))
         store.Commit()
 
 
-def find_conda_env():
+def _find_conda_env():
     """inspect whether sys.executable is within a conda environment and if it is, return
     the environment name and prefix. Otherwise return None, None"""
     prefix = os.path.dirname(sys.executable)
@@ -212,7 +203,7 @@ def find_conda_env():
     return os.path.basename(prefix), prefix
 
 
-def activate_conda_env(name, prefix):
+def _activate_conda_env(name, prefix):
     """Modify environment variables so as to effectively activate the given conda env
     from the perspective of child processes. If the conda env appears to already be
     active, do nothing. Does not set environment variables, instead returns a copy that
@@ -223,6 +214,7 @@ def activate_conda_env(name, prefix):
         return
     env['CONDA_DEFAULT_ENV'] = name
     env['CONDA_PREFIX'] = prefix
+    #TODO: unix - compare $PATH before and after activating an env
     new_paths = os.path.pathsep.join(
         [
             prefix,
@@ -241,7 +233,8 @@ def activate_conda_env(name, prefix):
 
     return env
 
-def run(*args):
+
+def launch(*args):
     """Runs a child Python subprocess, passing it the given argument list. If
     sys.executable is pythonw.exe, then the child process will be run with the
     corresponding python.exe with a hidden console window. Otherwise it will be run with
@@ -250,13 +243,15 @@ def run(*args):
     environment."""
     import subprocess
 
-    CREATE_NO_WINDOW = 1 << 27 # TODO: can use subprocess.CREATE_NO_WINDOW in py3.7+
+    CREATE_NO_WINDOW = 1 << 27  # TODO: can use subprocess.CREATE_NO_WINDOW in py3.7+
 
     popen_kwargs = {}
 
-    envname, prefix = find_conda_env()
+    # TODO: virtualenv
+
+    envname, prefix = _find_conda_env()
     if envname is not None:
-        env = activate_conda_env(envname, prefix)
+        env = _activate_conda_env(envname, prefix)
         popen_kwargs['env'] = env
 
     python = sys.executable
@@ -266,10 +261,12 @@ def run(*args):
 
     return subprocess.call([python] + list(args), **popen_kwargs)
 
+
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser( description="""A launcher for running Python
+    parser = argparse.ArgumentParser(
+        description="""A launcher for running Python
         scripts/apps on Windows, potentially in conda environments. Run a child Python
         subprocess, passing it the given argument list. If the Python interpreter used
         to invoke this script is Python.exe, then it will be used to invoke the
@@ -307,20 +304,16 @@ def main():
         module_name = os.path.basename(sys.argv[0]).lower()
         if os.path.basename(sys.executable).lower() == 'pythonw.exe':
             module_name = module_name.rsplit('w', 1)[0]
-        # Find the import path of the module:
-        spec = importlib.util.find_spec(module_name)
-        if spec is None or spec.origin is None:
-            raise ModuleNotFoundError(module_name)
-        if spec.parent:
-            # A package:
-            script = os.path.join(os.path.dirname(spec.origin), '__main__.py')
-        else:
-            # A single-file module:
-            script = spec.origin
+        # Find the path of the module:
+        package_directory = _get_package_directory(module_name)
+        script_path = os.path.join(package_directory, *module_name.split('.')[1:])
+        if os.path.isdir(script_path):
+            script_path = os.path.join(script_path, '__main__.py')
         # Insert at the start of the argument list:
-        args = [script] + args
+        args = [script_path] + args
 
-    sys.exit(run(*args))
+    sys.exit(launch(*args))
+
 
 if __name__ == '__main__':
     main()
