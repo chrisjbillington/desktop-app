@@ -8,8 +8,8 @@ except ImportError:
 
 INSTALL_REQUIRES = [
     "setuptools_scm",
-    "pywin32;                       sys_platform == 'win32'",
-    "importlib_metadata >=1.0;      python_version < '3.8'",
+    "pywin32;               sys_platform == 'win32'",
+    "importlib_metadata;    python_version < '3.8'",
 ]
 
 setup(
@@ -17,7 +17,7 @@ setup(
     use_scm_version=True,
     description=(
         "Start menu shortcuts, correct taskbar pinning, and environment "
-        + "tweaks for Python GUI apps on Windows"
+        + "activation for Python GUI apps on Windows"
     ),
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
@@ -25,11 +25,17 @@ setup(
     author_email='chrisjbillington@gmail.com ',
     url='http://github.com/chrisjbillington/winlauncher',
     license="BSD",
+    packages=["winlauncher"],
     zip_safe=False,
     setup_requires=['setuptools', 'setuptools_scm'],
     include_package_data=True,
     python_requires=">=3.6",
     install_requires=INSTALL_REQUIRES if 'CONDA_BUILD' not in os.environ else [],
+    entry_points={
+        'console_scripts': [
+            'winlauncher = winlauncher.__main__:main',
+        ],
+    },
     cmdclass={'dist_conda': dist_conda} if dist_conda is not None else {},
     command_options={
         'dist_conda': {
