@@ -5,20 +5,27 @@ import hashlib
 import json
 from pathlib import Path
 
-if os.name == 'nt':
-    from win32com.shell import shellcon
-    from win32com.client import Dispatch
-    from win32com.propsys import propsys, pscon
+from .environment import (
+    get_package_directory,
+    WINDOWS,
+    LINUX,
+    MACOS,
+    short_envname,
+)
+from .windows import (
+    get_start_menu,
+    create_shortcut,
+    set_process_appusermodel_id,
+)
 
-from .utils import get_package_directory
+from .linux import get_user_applications, create_desktop_file
 
 
 CONFIG_FILENAME = 'winlauncher.json'
 
 
-class _Module:
-    """Object for managing shortcut creation and Windows AppUserModelID configuration
-    for a a Python module that has a winlauncher configuration."""
+class _ModuleConfig:
+    """Object holding winlauncher configuration for a module"""
 
     _instances = {}
 
@@ -33,23 +40,30 @@ class _Module:
         self.module_name = module_name
         self.package_directory = get_package_directory(module_name)
         config = self._load_config()
-        self.company_name = config['company_name']
+        self.org_name = config.get('org_name', None)
         self.product_name = config.get('product_name', None)
-        module_config = config['modules'][module_name]
+        module_config = config.get('modules', {}).get(module_name, {})
         self.display_name = module_config.get('display_name', module_name)
+        env = short_envname()
+        if env is not None:
+            self.display_name += f' ({env})'
         self.ico_file = module_config.get(
-            'ico', Path(self.package_directory, f'{module_name}.ico')
+            'ico', os.path.join(self.package_directory, f'{module_name}.ico')
         )
         self.svg_file = module_config.get(
-            'svg', Path(self.package_directory, f'{module_name}.svg')
+            'svg', os.path.join(self.package_directory, f'{module_name}.svg')
         )
         self.launcher_script_path = self._get_launcher_script_path()
         self.appid = self._get_appid()
 
     def _load_config(self):
-        """Load 'winlauncher.json' from the module package directory and return it"""
-        with open(Path(self.package_directory, CONFIG_FILENAME)) as f:
-            return json.load(f)
+        """Load 'winlauncher.json' from the module package directory and return it. If
+        it doesn't exist, return an empty dict."""
+        try:
+            with open(Path(self.package_directory, CONFIG_FILENAME)) as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
 
     def _get_launcher_script_path(self):
         """Get the path to the script for launching the app without a console. It is
@@ -67,115 +81,163 @@ class _Module:
 
     def _get_appid(self):
         """ Create a string identifying the application, for use in OS interfaces such
-        as as a Windows AppUserModelID, or for the name of a Linux .desktop file. The
-        format we use in either case is:
+        as as a Windows AppUserModelID. on Windows we use:
 
-        CompanyName.ProductName.<CamelCaseModuleName>.Python-<hexdigits>
+        <OrgName>.<ProductName>.<ModuleName>.Python-<hexdigits>
 
-        ProductName is omitted if it was not present in the configuration. The last
-        field contains a hash of the path to the Python interpreter for the module,
-        ensuring the appid is unique to the Python environment. The module name is
-        converted to camel case, periods replaced with hyphens and underscores removed.
+        OrgName or ProductName are omitted if not present in the configuration. The
+        last field contains a hash of the path to the Python interpreter for the module,
+        ensuring the appid is unique to the Python environment. The first three fields
+        are converted to CamelCase, periods replaced with hyphens and underscores
+        removed.
+
+        On Linux we use:
+
+        <module_name>-<envname>
+
+        where <envname> is the name of the conda or virtualenv environment. The env is
+        omitted if it's a conda env called 'base' or a virtualenv called '.venv' or
+        'venv'. The reason we use a different format to Windows is that this will be
+        used as the executable name of the app's process (sys.argv[0]), and so it's
+        slightly more important for it to be user-friendly as it will appear as the
+        default window title in some GUI toolkits.
+
+        On macos it's the same as Linux, but this is likely to change when proper macos
+        support is introduced.
+
         """
-
         # Hash the path to the Python interpreter so that we can include in the appid a
         # segment unique to the Python environment. Note the case-insensitivity - I've
         # observed the case differing depending on whether a virtualenv is active, so
-        # better use normpath to not vary with changes in case:
-        interpreter_hash = hashlib.sha256(
-            os.fsencode(os.path.normcase(sys.executable))
-        ).hexdigest()[:16]
+        # better use normcase to not vary with changes in case:
 
-        camelcase_modulename = ''.join(
-            s.capitalize()
-            for s in self.module_name.title().replace('_', '').replace('.', '-')
-        )
+        if WINDOWS:
+            replacements = {' ': '', '_': '', '.': '-'}
+            interpreter_hash = hashlib.sha256(
+                os.fsencode(os.path.normcase(sys.executable))
+            ).hexdigest()[:16]
+            appid_parts = []
+            for part in [self.org_name, self.product_name, self.module_name]:
+                if part is None:
+                    continue
+                camelcase_part = part.title()
+                for a, b in replacements.items():
+                    camelcase_part = camelcase_part.replace(a, b)
+                appid_parts.append(camelcase_part)
+            appid_parts.append(f'Python-{interpreter_hash}')
+            return '.'.join(appid_parts)
+        else:  # TODO: consider macos
+            env = short_envname()
+            if env is None:
+                return self.module_name
+            return f'{self.module_name}-{env}'
 
-        appid_parts = [
-            self.company_name,
-            camelcase_modulename,
-            f'Python-{interpreter_hash}',
-        ]
 
-        if self.product_name is not None:
-            appid_parts.insert(1, self.product_name)
+def set_process_appid(module_name):
+    """Associate the currently running process with the shortcut for the given module
+    name. This should ensure the app has the correct icon in the taskbar, groups its
+    windows correctly, can be pinned etc."""
+    # TODO: document that tk doesn't use sys.argv[0] and you should set the tk classname
+    # yourself.
+    config = _ModuleConfig.instance(module_name)
+    if WINDOWS:
+        set_process_appusermodel_id(config.appid)
+    else:  # TODO: consider macos
+        sys.argv[0] = config.appid
 
-        return '.'.join(appid_parts)
 
-    def set_window_appusermodel_id(self, window_id):
-        """Set the Windows AppUserModelID settings for the given `window_id` to the
-        appid for the module."""
-        store = propsys.SHGetPropertyStoreForWindow(
-            window_id, propsys.IID_IPropertyStore
-        )
-        properties = {
-            pscon.PKEY_AppUserModel_ID: self.appid,
-            pscon.PKEY_AppUserModel_RelaunchCommand: self.launcher_script_path,
-            pscon.PKEY_AppUserModel_RelaunchDisplayNameResource: self.display_name,
-            pscon.PKEY_AppUserModel_RelaunchIconResource: self.ico_file,
-        }
-
-        for key, value in properties.items():
-            store.SetValue(key, propsys.PROPVARIANTType(value))
-        store.Commit()
-
-    def add_to_start_menu(self):
-        """Add a shortcut the the launcher to the start menu. Windows only."""
-
-        objShell = Dispatch('WScript.Shell')
-        start_menu = objShell.SpecialFolders("Programs")
-
-        shortcut_path = os.path.join(start_menu, self.display_name) + '.lnk'
-        # Overwrite previously existing shortcuts of the same name:
-        if os.path.exists(shortcut_path):
-            os.unlink(shortcut_path)
-
-        shortcut = objShell.CreateShortcut(shortcut_path)
-        shortcut.TargetPath = self.launcher_script_path
-        shortcut.WorkingDirectory = str(Path('~').expanduser)
-        shortcut.IconLocation = self.ico_file
-        shortcut.Description = self.display_name
-        shortcut.save()
-
-        # Edit the shortcut to associate the AppUserModel_ID with it:
-        store = propsys.SHGetPropertyStoreFromParsingName(
-            shortcut_path, None, shellcon.GPS_READWRITE, propsys.IID_IPropertyStore
-        )
-        store.SetValue(pscon.PKEY_AppUserModel_ID, propsys.PROPVARIANTType(self.appid))
-        store.Commit()
-
-    def remove_from_start_menu(self):
-        objShell = Dispatch('WScript.Shell')
-        start_menu = objShell.SpecialFolders("Programs")
-        shortcut_path = os.path.join(start_menu, self.display_name) + '.lnk'
-        if os.path.exists(shortcut_path):
-            os.unlink(shortcut_path)
-        else:
-            print(f"{shortcut_path} does not exist, nothing to delete")
-
-    def install_dot_desktop_file(self):
-        """Create a .desktop file for the launcher in the system applications menus.
-        Linux only."""
-        raise NotImplementedError
-
-    def uninstall_dot_desktop_file(self):
+def _default_shortcut_dir(config):
+    if WINDOWS:
+        path_parts = [get_start_menu()]
+        if config.company_name is not None:
+            path_parts.append(config.company_name)
+        if config.product_name is not None:
+            path_parts.append(config.product_name)
+        return os.path.join(path_parts)
+    elif LINUX:
+        return get_user_applications()
+    elif MACOS:
         raise NotImplementedError
 
 
-def set_window_appusermodel_id(module_name, window_id):
-    """Set the Windows AppUserModelID settings for the given `window_id` to the appid
-    for the given module based on its winlauncher configuration. If `window_id` is None
-    or we are not on Windows, this will do nothing."""
-    if window_id is not None and os.name == 'nt':
-        _Module.instance(module_name).set_window_appusermodel_id(window_id)
+def _shortcut_basename(config):
+    if WINDOWS:
+        return f'{config.display_name}.lnk'
+    elif LINUX:
+        return f'{config.appid}.desktop'
+    elif MACOS:
+        raise NotImplementedError
 
-def install(module_name):
+
+def install(module_name, path=None, verbose=False):
     """Add a shortcut to launch the app for the given module to the system menus, i.e
-    the start menu on Windows, ~/.local/share/applications on Linux, and TODO on
-    macOS"""
-    raise NotImplementedError
+    the start menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS.
+    If path is given, the shortcut will be created in the given directory instead. On
+    Linux, in order to ensure the name of the shortcut (which may contain the name of a
+    conda or virtualenv environment) matches the name of the executable it points to, a
+    symbolic link called `<module_name>-<envname>` will be created."""
+    config = _ModuleConfig.instance(module_name)
+    if path is None:
+        path = _default_shortcut_dir(config)
+    basename = _shortcut_basename(config)
+    shortcut_path = os.path.join(path, basename)
+    if os.path.exists(shortcut_path):
+        if verbose:
+            msg = f'warning: overwriting existing file {shortcut_path}'
+            print(msg, file=sys.stderr)
+        os.unlink(shortcut_path)
+    if WINDOWS:
+        create_shortcut(
+            shortcut_path,
+            config.launcher_script_path,
+            working_directory=Path.home(),
+            icon_file=config.ico_file,
+            display_name=config.display_name,
+            appusermodel_id=config.appid,
+        )
+        if verbose:
+            print(f' -> created {shortcut_path}')
+    elif LINUX:
+        create_desktop_file(
+            shortcut_path,
+            target=config.launcher_script_path,
+            display_name=config.display_name,
+            icon_file=config.svg_file,
+        )
+        if verbose:
+            print(f' -> created {shortcut_path}')
+        if config.appid != config.module_name:
+            symlink_path = Path(config.launcher_script_path).parent / config.appid
+            if os.path.exists(symlink_path):
+                if verbose:
+                    msg = f'warning: overwriting existing symlink {symlink_path}'
+                    print(msg, file=sys.stderr)
+                    os.unlink(symlink_path)
+            os.symlink(symlink_path, config.launcher_script_path)
+            if verbose:
+                print(
+                    f' -> created symlink {shortcut_path} -> '
+                    + f'{config.launcher_script_path}'
+                )
+    elif MACOS:
+        raise NotImplementedError
 
-def uninstall(module_name):
-    """Remove the app shortcut for the given modul from the system menus, i.e the start
-    menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS"""
-    raise NotImplementedError
+
+def uninstall(module_name, path=None, verbose=False):
+    """Remove the app shortcut for the given module from the system menus, i.e the start
+    menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS. If a
+    symlink was created within the scripts folder in install(), delete it."""
+    config = _ModuleConfig.instance(module_name)
+    if path is None:
+        path = _default_shortcut_dir(config)
+    files_to_delete = [os.path.join(path, _shortcut_basename(config))]
+    if not WINDOWS and config.appid != config.module_name:
+        files_to_delete.append(Path(config.launcher_script_path).parent / config.appid)
+    for file in files_to_delete:
+        try:
+            os.unlink(file)
+            if verbose:
+                print(f' -> deleted {file}')
+        except FileNotFoundError:
+            if verbose:
+                print(f'warning: no such file {file}', file=sys.stderr)

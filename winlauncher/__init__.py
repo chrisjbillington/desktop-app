@@ -15,19 +15,20 @@ except LookupError:
         __version__ = None
 
 
-from .launcher import (
-    entry_point,
+from .launcher import entry_point
+
+from .environment import (
     detect_conda_env,
     activate_conda_env,
     detect_venv,
     activate_venv,
 )
-from .shell import set_window_appusermodel_id, install, uninstall
+from .shell import set_process_appid, install, uninstall
 
 
 __all__ = [
     'entry_point',
-    'set_window_appusermodel_id',
+    'set_process_appid',
     'install',
     'uninstall',
     'detect_conda_env',

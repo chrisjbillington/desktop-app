@@ -1,51 +1,45 @@
-
-
-
-
-
-
-
-
+import argparse
+from winlauncher.shell import install, uninstall
 
 def main():
-    pass
-    # import argparse
+    parser = argparse.ArgumentParser(description="""Create (or remove) a Start menu
+        shortcut (Windows) or .desktop file (Linux) to run the Python module of the
+        given name. The package owning the module must have configured appropriate
+        entry_points for the module, and either have a winlauncher.json specifying the
+        location of the icon files to use, or must have the files in the default
+        locations. See the main winlauncher documentation for details.""")
 
-    # parser = argparse.ArgumentParser(
-    #     description="""A launcher for running Python scripts/apps on Windows,
-    #     potentially in conda environments. Run a child Python subprocess, passing it the
-    #     given argument list. If the Python interpreter used to invoke this script is
-    #     Python.exe, then it will be used to invoke the subprocess, but if it is
-    #     Pythonw.exe, the child will instead be run with the corresponding Python.exe
-    #     with a hidden console window. This prevents a number of issues with using
-    #     Pythonw.exe, but without having to show a console window. If the Python
-    #     interpreter is within a conda environment, then the child process's environment
-    #     will be modified to have the effect of activating the environment. If this
-    #     script is invoked as an entry_point of another package, it will inspect
-    #     sys.argv[0] to find the name of the entry_point script. The basename of the
-    #     script, (excluding a '.exe' suffix (or 'w.exe' if a gui_script) will be
-    #     interpreted as a module name, and that module - or its __main__.py if it's a
-    #     package - will be run. Note that a package's __init__.py will not be run first
-    #     as is the case with `python -m package_name`. This is a performance optimisation
-    #     to allow the program to say, display a splash screen as soon as possible during
-    #     startup. If it is necessary for __init__.py to run, the application's
-    #     __main__.py should import it. In this way, an application may define gui_scripts
-    #     and console_scripts entry_points named <modulename> and <modulenamew> that point
-    #     to winlauncher:main to create launcher scripts."""
-    # )
+    parser.add_argument(
+        action="store",
+        choices=['install', 'uninstall'],
+        dest="action",
+        help="""Whether to create (install) a shortcut or .desktop file, or to delete
+            (uninstall) an existing one.""",
+    )
+    parser.add_argument(
+        '--path',
+        action="store",
+        default=None,
+        help="""Directory to create/delete shortcut or .desktop file. If not given,
+            defaults to the Start menu on Windows, and to ~/local/share/applications on
+            Linux.""",
+    )
+    parser.add_argument(
+        '-q',
+        '--quiet',
+        action="store_true",
+        help="""Don't print the names of files
+            created/deleted.""",
+    )
+    parser.add_argument(
+        action="store", dest="module",
+    )
 
-    # parser.add_argument(
-    #     'args',
-    #     metavar='args',
-    #     type=str,
-    #     nargs=argparse.REMAINDER,
-    #     help="""Arguments to pass to the child Python interpreter. In the simplest case
-    #         this simply the path to a script to be run, but may be '-m module_name' or
-    #         any other arguments accepted by the Python' command""",
-    # )
-    # args = parser.parse_args().args
-
-    # sys.exit(launch(*args))
+    args = parser.parse_args()
+    if args.action == 'install':
+        install(args.module, path=args.path, verbose=not args.quiet)
+    if args.action == 'uninstall':
+        uninstall(args.module, path=args.path, verbose=not args.quiet)
 
 if __name__ == '__main__':
     main()

@@ -1,60 +1,13 @@
 import sys
 import os
 import subprocess
-from .utils import get_package_directory
-
-
-def detect_conda_env():
-    """inspect whether sys.executable is within a conda environment and if it is, return
-    the environment name and prefix. Otherwise return None, None"""
-    prefix = os.path.dirname(sys.executable)
-    if not os.path.isdir(os.path.join(prefix, 'conda-meta')):
-        # Not a conda env
-        return None, None
-    if os.path.isdir(os.path.join(prefix, 'condabin')):
-        # It's the base conda env:
-        return 'base', prefix
-    # Not the base env: its name is the directory basename:
-    return os.path.basename(prefix), prefix
-
-
-def activate_conda_env(name, prefix):
-    """Modify environment variables so as to effectively activate the given conda env
-    from the perspective of child processes. If the conda env appears to already be
-    active, do nothing. Does not set environment variables, instead returns a copy that
-    may be passed to subprocess.Popen as the env arg."""
-    env = os.environ.copy()
-    if env['CONDA_DEFAULT_ENV'] == name and env['CONDA_PREFIX'] == prefix:
-        # Env is already active
-        return
-    env['CONDA_DEFAULT_ENV'] = name
-    env['CONDA_PREFIX'] = prefix
-    # TODO: unix - compare $PATH before and after activating an env
-    new_paths = os.path.pathsep.join(
-        [
-            prefix,
-            os.path.join(prefix, "Library", "mingw-w64", "bin"),
-            os.path.join(prefix, "Library", "usr", "bin"),
-            os.path.join(prefix, "Library", "bin"),
-            os.path.join(prefix, "Scripts"),
-        ]
-    )
-    existing_paths = env.get('PATH', '')
-    # Avoid a leading path separator in the PATH variable:
-    if existing_paths:
-        env['PATH'] = new_paths + os.path.pathsep + existing_paths
-    else:
-        env['PATH'] = new_paths
-
-    return env
-
-
-def detect_venv():
-    raise NotImplementedError
-
-
-def activate_venv():
-    raise NotImplementedError
+from .environment import (
+    detect_conda_env,
+    activate_conda_env,
+    detect_venv,
+    activate_venv,
+    get_package_directory,
+)
 
 
 def entry_point():
@@ -92,20 +45,23 @@ def entry_point():
     if os.path.isdir(script_path):
         script_path = os.path.join(script_path, '__main__.py')
 
-    CREATE_NO_WINDOW = 1 << 27  # TODO: can use subprocess.CREATE_NO_WINDOW in py3.7+
-
     popen_kwargs = {}
 
-    # TODO: virtualenv
+    conda_envname, conda_prefix = detect_conda_env()
+    if conda_envname is not None:
+        env = activate_conda_env(conda_envname, conda_prefix)
+        popen_kwargs['env'] = env
 
-    envname, prefix = detect_conda_env()
-    if envname is not None:
-        env = activate_conda_env(envname, prefix)
+    venv_prefix = detect_venv()
+    if venv_prefix is not None:
+        env = activate_venv(venv_prefix)
         popen_kwargs['env'] = env
 
     python = sys.executable
     if os.path.basename(python).lower() == 'pythonw.exe':
         python = os.path.join(os.path.dirname(python), 'python.exe')
+        # TODO: can use subprocess.CREATE_NO_WINDOW once Python 3.6 is end-of-life
+        CREATE_NO_WINDOW = 1 << 27
         popen_kwargs['creationflags'] = CREATE_NO_WINDOW
 
     try:
