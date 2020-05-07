@@ -16,8 +16,8 @@ setup(
     name='winlauncher',
     use_scm_version=True,
     description=(
-        "Start menu shortcuts, correct taskbar pinning, and environment "
-        + "activation for Python GUI apps on Windows"
+        "OS menu shortcuts, correct taskbar behaviour, and environment "
+        + "activation for Python GUI apps"
     ),
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
@@ -31,11 +31,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.6",
     install_requires=INSTALL_REQUIRES if 'CONDA_BUILD' not in os.environ else [],
-    entry_points={
-        'console_scripts': [
-            'winlauncher = winlauncher.__main__:main',
-        ],
-    },
+    entry_points={'console_scripts': ['winlauncher = winlauncher.__main__:main',],},
     cmdclass={'dist_conda': dist_conda} if dist_conda is not None else {},
     command_options={
         'dist_conda': {
