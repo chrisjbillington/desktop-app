@@ -36,9 +36,7 @@ def entry_point():
     `__init__.py` will not be run first. This is something of an optimisation to allow
     GUI programs to display a splash screen before doing any other imports.
     """
-    module_name = os.path.basename(sys.argv[0]).lower()
-    if os.path.basename(sys.executable).lower() == 'pythonw.exe':
-        module_name = module_name.rsplit('w', 1)[0]
+    module_name = os.path.basename(sys.argv[0]).rsplit('-gui', 1)[0]
     # Find the path of the module:
     package_directory = get_package_directory(module_name)
     script_path = os.path.join(package_directory, *module_name.split('.')[1:])

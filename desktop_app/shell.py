@@ -67,16 +67,16 @@ class _ModuleConfig:
 
     def _get_launcher_script_path(self):
         """Get the path to the script for launching the app without a console. It is
-        assumed to be called <module_name> and be in the bin or Scripts directory of the
-        current Python interpreter as returned by `sysconfig.get_path('scripts')`. As
-        such it will not be correct when used with `pip install --user` or any other
+        assumed to be called <module_name>-gui and be in the bin or Scripts directory of
+        the current Python interpreter as returned by `sysconfig.get_path('scripts')`.
+        As such it will not be correct when used with `pip install --user` or any other
         custom options to pip that modify the install prefix."""
         # Look up the path to the launcher:
         script_path = str(
             Path(sysconfig.get_path('scripts'), self.module_name).absolute()
         )
-        if os.name == 'nt':
-            return script_path + 'w.exe'
+        if WINDOWS:
+            return script_path + '-gui.exe'
         return script_path
 
     def _get_appid(self):
@@ -138,16 +138,17 @@ def set_process_appid(module_name):
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
     config = _ModuleConfig.instance(module_name)
-    # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
-    # sys.argv[0], so ensuring it matches the name of our .desktop file is sufficient to
-    # get DEs to correctly identify our app windows. Hopefully the toolkits do the
-    # equivalent in Wayland - setting the app_id xdg-shell property. If not, the user
-    # will need to make the right function call depending on their GUI toolkit. Notable
-    # exception: tk doesn't use sys.argv[0] - the user should set the tk classname to
-    # sys.argv[0] themselves.
-    sys.argv[0] = config.appid
     if WINDOWS:
         set_process_appusermodel_id(config.appid)
+    else:
+        # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
+        # sys.argv[0], so ensuring it matches the name of our .desktop file is
+        # sufficient to get DEs to correctly identify our app windows. Hopefully the
+        # toolkits do the equivalent in Wayland - setting the app_id xdg-shell property.
+        # If not, the user will need to make the right function call depending on their
+        # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user should
+        # set the tk classname to sys.argv[0] themselves.
+        sys.argv[0] = config.appid
     # TODO: consider macos
         
 
