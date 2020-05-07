@@ -21,11 +21,11 @@ from .windows import (
 from .linux import get_user_applications, create_desktop_file
 
 
-CONFIG_FILENAME = 'winlauncher.json'
+CONFIG_FILENAME = 'desktop-app.json'
 
 
 class _ModuleConfig:
-    """Object holding winlauncher configuration for a module"""
+    """Object holding desktop-app configuration for a module"""
 
     _instances = {}
 
@@ -137,14 +137,19 @@ def set_process_appid(module_name):
     """Associate the currently running process with the shortcut for the given module
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
-    # TODO: document that tk doesn't use sys.argv[0] and you should set the tk classname
-    # yourself.
     config = _ModuleConfig.instance(module_name)
+    # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
+    # sys.argv[0], so ensuring it matches the name of our .desktop file is sufficient to
+    # get DEs to correctly identify our app windows. Hopefully the toolkits do the
+    # equivalent in Wayland - setting the app_id xdg-shell property. If not, the user
+    # will need to make the right function call depending on their GUI toolkit. Notable
+    # exception: tk doesn't use sys.argv[0] - the user should set the tk classname to
+    # sys.argv[0] themselves.
+    sys.argv[0] = config.appid
     if WINDOWS:
         set_process_appusermodel_id(config.appid)
-    else:  # TODO: consider macos
-        sys.argv[0] = config.appid
-
+    # TODO: consider macos
+        
 
 def _default_shortcut_dir(config):
     if WINDOWS:

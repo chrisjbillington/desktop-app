@@ -5,9 +5,9 @@ def main():
     parser = argparse.ArgumentParser(description="""Create (or remove) a Start menu
         shortcut (Windows) or .desktop file (Linux) to run the Python module of the
         given name. The package owning the module must have configured appropriate
-        entry_points for the module, and either have a winlauncher.json specifying the
+        entry_points for the module, and either have a desktop-app.json specifying the
         location of the icon files to use, or must have the files in the default
-        locations. See the main winlauncher documentation for details.""")
+        locations. See the main desktop-app documentation for details.""")
 
     parser.add_argument(
         action="store",

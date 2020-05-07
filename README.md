@@ -1,27 +1,20 @@
-Winlaucher
+desktop-app
 ==========
 
-`winlauncher` simplifies making a Python GUI application launch and behave in a standard
-way with respect to the Windows Start menu and taskbar.
+`desktop-app` simplifies making a Python GUI application install, launch, and behave in
+a standard way with respect to the application menus and the taskbar in Windows and
+Linux (Macos support planned).
 
 If your application is a Python module runnable from the command line as `python -m
-mymodule`, then with minimal configuration `winlauncher` can:
+mymodule`, then with minimal configuration `desktop-app` can:
 
 * Create a launcher `.exe` that runs your application
-    * with a hidden console
     * after activating a `conda` environment or virtualenv, if any
-* Create a start menu entry for your application (that runs said `.exe`)
-* Ensure your application appears in the Windows taskbar with the correct name and icon,
+    * with a hidden console if on Windows
+* Create a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
+  application from your desktop applications menu
+* Ensure your application appears in the taskbar with the correct name and icon,
   and can be pinned correctly.
-
-Though most of the problems it solves are Windows-specific, `winlauncher` can be used
-for cross platform apps. On all platforms it creates launcher scripts, though the hidden
-console is only relevant to Windows.
-
-* On Linux instead of start menu entries it will create a `.desktop` file for your
-  application so that it appears in your desktop environment's application menus.
-
-* It does not yet create an app launcher on MacOS, but it's on the TODO list.
 
 
 Usage
@@ -31,8 +24,8 @@ Usage
 Details
 =======
 
-Hidden console
---------------
+Hidden console on Windows
+-------------------------
 
 The usual recommendation to run Python GUI applications is with `Pythonw.exe`, which
 does not create a console window. However, when running under `Pythonw.exe`, a simple
