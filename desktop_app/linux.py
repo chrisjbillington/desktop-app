@@ -5,11 +5,7 @@ def _desktop_escape(s):
     """Escape a filepath for use in a .desktop file"""
     escapes = {' ': R'\s', '\n': R'\n', '\t': R'\t', '\\': R'\\'}
     for unescaped, escaped in escapes.items():
-        try:
-            s = s.replace(unescaped, escaped)
-        except TypeError:
-            import embed
-            embed.embed()
+        s = s.replace(unescaped, escaped)
     return s
 
 def get_user_applications():
@@ -37,7 +33,6 @@ def create_desktop_file(
             Exec={_desktop_escape(target)}
             Icon={_desktop_escape(icon_file)}
             Type=Application
-            StartupNotify=true
             """
             )
         )

@@ -57,7 +57,7 @@ class _ModuleConfig:
         self.appid = self._get_appid()
 
     def _load_config(self):
-        """Load 'winlauncher.json' from the module package directory and return it. If
+        """Load 'desktop-app.json' from the module package directory and return it. If
         it doesn't exist, return an empty dict."""
         try:
             with open(Path(self.package_directory, CONFIG_FILENAME)) as f:
@@ -132,13 +132,13 @@ class _ModuleConfig:
                 return self.module_name
             return f'{self.module_name}-{env}'
 
-
 def set_process_appid(module_name):
     """Associate the currently running process with the shortcut for the given module
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
     config = _ModuleConfig.instance(module_name)
     if WINDOWS:
+        sys.argv[0] = config.launcher_script_path
         set_process_appusermodel_id(config.appid)
     else:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
@@ -146,9 +146,9 @@ def set_process_appid(module_name):
         # sufficient to get DEs to correctly identify our app windows. Hopefully the
         # toolkits do the equivalent in Wayland - setting the app_id xdg-shell property.
         # If not, the user will need to make the right function call depending on their
-        # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user should
+        # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user needs to
         # set the tk classname to sys.argv[0] themselves.
-        sys.argv[0] = config.appid
+        sys.argv[0] = _launcher_script_symlink_path(config)
     # TODO: consider macos
         
 
@@ -173,6 +173,11 @@ def _shortcut_basename(config):
         return f'{config.appid}.desktop'
     elif MACOS:
         raise NotImplementedError
+
+
+def _launcher_script_symlink_path(config):
+    if config.appid != config.module_name:
+        return str(Path(config.launcher_script_path).parent / config.appid)
 
 
 def install(module_name, path=None, verbose=False):
@@ -204,26 +209,27 @@ def install(module_name, path=None, verbose=False):
         if verbose:
             print(f' -> created {shortcut_path}')
     elif LINUX:
+        symlink_path = _launcher_script_symlink_path(config)
         create_desktop_file(
             shortcut_path,
-            target=config.launcher_script_path,
+            target=symlink_path or config.launcher_script_path,
             display_name=config.display_name,
             icon_file=config.svg_file,
         )
         if verbose:
             print(f' -> created {shortcut_path}')
-        if config.appid != config.module_name:
-            symlink_path = Path(config.launcher_script_path).parent / config.appid
-            if os.path.exists(symlink_path):
+        if symlink_path is not None:
+            symlink_path = Path(symlink_path)
+            if symlink_path.exists():
                 if verbose:
                     msg = f'warning: overwriting existing symlink {symlink_path}'
                     print(msg, file=sys.stderr)
-                    os.unlink(symlink_path)
-            os.symlink(symlink_path, config.launcher_script_path)
+                    symlink_path.unlink()
+            symlink_path.symlink_to(config.launcher_script_path)
             if verbose:
                 print(
-                    f' -> created symlink {shortcut_path} -> '
-                    + f'{config.launcher_script_path}'
+                    f' -> created symlink {symlink_path} -> '
+                    + f'{os.path.basename(config.launcher_script_path)}'
                 )
     elif MACOS:
         raise NotImplementedError

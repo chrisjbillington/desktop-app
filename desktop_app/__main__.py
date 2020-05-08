@@ -1,5 +1,5 @@
 import argparse
-from winlauncher.shell import install, uninstall
+from desktop_app.shell import install, uninstall
 
 def main():
     parser = argparse.ArgumentParser(description="""Create (or remove) a Start menu
