@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from subprocess import list2cmdline
 from .environment import WINDOWS
 
@@ -18,7 +18,7 @@ def _checkwindows():
 def get_start_menu():
     """Return the path for Start menu entries for user-installed programs"""
     _checkwindows()
-    return Dispatch('WScript.Shell').SpecialFolders("Programs")
+    return Path(Dispatch('WScript.Shell').SpecialFolders("Programs"))
 
 
 def create_shortcut(
@@ -35,14 +35,14 @@ def create_shortcut(
     arguments separated by spaces."""
     _checkwindows()
     objShell = Dispatch('WScript.Shell')
-    shortcut = objShell.CreateShortcut(shortcut_path)
-    shortcut.TargetPath = target
+    shortcut = objShell.CreateShortcut(str(shortcut_path))
+    shortcut.TargetPath = str(target)
     if arguments:
         shortcut.Arguments = list2cmdline(arguments)
     if working_directory is not None:
-        shortcut.WorkingDirectory = working_directory
+        shortcut.WorkingDirectory = str(working_directory)
     if icon_file is not None:
-        shortcut.IconLocation = icon_file
+        shortcut.IconLocation = str(icon_file)
     if display_name is not None:
         shortcut.Description = display_name
     shortcut.save()

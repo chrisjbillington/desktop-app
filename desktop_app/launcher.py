@@ -43,9 +43,9 @@ def entry_point():
     module_name, *_ = Path(sys.argv[0]).resolve().name.rsplit('-gui', 1)
     # Find the path of the module:
     package_directory = get_package_directory(module_name)
-    script_path = os.path.join(package_directory, *module_name.split('.')[1:])
-    if os.path.isdir(script_path):
-        script_path = os.path.join(script_path, '__main__.py')
+    script_path = Path(package_directory, *module_name.split('.')[1:])
+    if script_path.is_dir():
+        script_path /= '__main__.py'
 
     popen_kwargs = {}
 
@@ -59,9 +59,9 @@ def entry_point():
         env = activate_venv(venv_prefix)
         popen_kwargs['env'] = env
 
-    python = sys.executable
-    if os.path.basename(python).lower() == 'pythonw.exe':
-        python = os.path.join(os.path.dirname(python), 'python.exe')
+    python = Path(sys.executable)
+    if python.name == Path('pythonw.exe'):  # Case-insensitive comparison on Windows
+        python = python.parent / 'python.exe'
         # TODO: can use subprocess.CREATE_NO_WINDOW once Python 3.6 is end-of-life
         CREATE_NO_WINDOW = 1 << 27
         popen_kwargs['creationflags'] = CREATE_NO_WINDOW

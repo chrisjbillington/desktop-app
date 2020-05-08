@@ -3,6 +3,7 @@ import os
 import importlib.util
 import platform
 from functools import lru_cache
+from pathlib import Path
 
 _os = platform.system()
 WINDOWS = _os == 'Windows'
@@ -13,7 +14,7 @@ if not (WINDOWS or LINUX or MACOS):
 
 
 def get_package_directory(module_name):
-    """Return the path of the package directory that the given module is in."""
+    """Return Path of the package directory that the given module is in."""
     base_module = module_name.split('.', 1)[0]
     spec = importlib.util.find_spec(base_module)
     if spec is None or spec.origin is None:
@@ -21,24 +22,25 @@ def get_package_directory(module_name):
     if not spec.parent:
         msg = f'{base_module} is not a package'
         raise ValueError(msg)
-    return os.path.dirname(spec.origin)
+    return Path(spec.origin).parent
+
 
 @lru_cache
 def detect_conda_env():
-    """Inspect whether sys.executable is within a conda environment and if it is, return
-    the environment name and prefix. Otherwise return None, None"""
-    prefix = os.path.dirname(sys.executable)
+    """Inspect whether `sys.executable` is within a conda environment and if it is,
+    return the environment name and Path of its prefix. Otherwise return None, None"""
+    prefix = Path(sys.executable).parent
     if not WINDOWS:
         # On unix, python is in <prefix>/bin, and in windows it's directly in <prefix>
-        prefix = os.path.dirname(prefix)
-    if not os.path.isdir(os.path.join(prefix, 'conda-meta')):
+        prefix = prefix.parent
+    if not (prefix / 'conda-meta').is_dir():
         # Not a conda env
         return None, None
-    if os.path.isdir(os.path.join(prefix, 'condabin')):
+    if (prefix / 'condabin').is_dir():
         # It's the base conda env:
         return 'base', prefix
     # Not the base env: its name is the directory basename:
-    return os.path.basename(prefix), prefix
+    return prefix.name, prefix
 
 
 def activate_conda_env(name, prefix):
@@ -47,41 +49,44 @@ def activate_conda_env(name, prefix):
     active, do nothing. Does not actually set environment variables, instead returns a
     copy that may be passed to subprocess.Popen as the env arg. Not all environment
     variables are considered, only CONDA_DEFAULT_ENV, CONDA_PREFIX, and PATH."""
+    prefix = Path(prefix)
     env = os.environ.copy()
-    if (
-        env.get('CONDA_DEFAULT_ENV', '') == name
-        and os.path.normcase(env.get('CONDA_PREFIX', '')) == prefix
-    ):
+    current_name = env.get('CONDA_DEFAULT_ENV')
+    current_prefix = env.get('CONDA_PREFIX')
+    if current_prefix is not None:
+        current_prefix = Path(current_prefix)
+    if current_name == name and current_prefix == prefix:
         # Env is already active
         return
     env['CONDA_DEFAULT_ENV'] = name
-    env['CONDA_PREFIX'] = prefix
+    env['CONDA_PREFIX'] = str(prefix)
     if WINDOWS:
         env['PATH'] = os.path.pathsep.join(
             [
-                prefix,
-                os.path.join(prefix, "Library", "mingw-w64", "bin"),
-                os.path.join(prefix, "Library", "usr", "bin"),
-                os.path.join(prefix, "Library", "bin"),
-                os.path.join(prefix, "Scripts"),
+                str(prefix),
+                str(prefix / "Library" / "mingw-w64" / "bin"),
+                str(prefix / "Library" / "usr" / "bin"),
+                str(prefix / "Library" / "bin"),
+                str(prefix / "Scripts"),
                 env['PATH'],
             ]
         )
     else:
-        env['PATH'] = os.path.pathsep.join([os.path.join(prefix, 'bin'), env['PATH']])
+        env['PATH'] = os.path.pathsep.join([str(prefix / 'bin'), env['PATH']])
 
     return env
+
 
 @lru_cache
 def detect_venv():
     """Inspect whether sys.executable is within a virtualenv and if it is, return the
-    virtualenv prefix. Otherwise return None"""
+    virtualenv Path of prefix. Otherwise return None"""
     if hasattr(sys, 'real_prefix'):
         # virtualenv < v20 sets sys.real_prefix, which doesn't exist otherwise
-        return sys.prefix
+        return Path(sys.prefix)
     if sys.base_prefix != sys.prefix:
         # virtualenv >= v20 sets sys.base_prefix, which always exists
-        return sys.prefix
+        return Path(sys.prefix)
 
 
 def activate_venv(prefix):
@@ -89,20 +94,20 @@ def activate_venv(prefix):
     from the perspective of child processes. If the virtualenv appears to already be
     active, do nothing. Does not actually set environment variables, instead returns a
     copy that may be passed to subprocess.Popen as the env arg."""
-
+    prefix = Path(prefix)
     env = os.environ.copy()
-    if os.path.normcase(env.get('VIRTUAL_ENV', '')) == os.path.normcase(prefix):
+    current_env = env.get('VIRTUAL_ENV')
+    if current_env is not None:
+        current_env = Path(current_env)
+    if current_env == prefix:
         # Env is already active
         return
-    env['VIRTUAL_ENV'] = prefix
+    env['VIRTUAL_ENV'] = str(prefix)
     env.pop('PYTHONHOME', None)
     if WINDOWS:
-        env['PATH'] = os.path.pathsep.join(
-            [os.path.join(prefix, 'Scripts'), env['PATH']]
-        )
+        env['PATH'] = os.pathsep.join([str(prefix / 'Scripts'), env['PATH']])
     else:
-        env['PATH'] = os.path.pathsep.join([os.path.join(prefix, 'bin'), env['PATH']])
-
+        env['PATH'] = os.pathsep.join([str(prefix / 'bin'), env['PATH']])
     return env
 
 
@@ -119,7 +124,7 @@ def short_envname():
         return envname
     envpath = detect_venv()
     if envpath is not None:
-        envname = os.path.basename(envpath).lstrip('.')
+        envname = envpath.name.lstrip('.')
         if envname == 'venv':
             return None
         return envname

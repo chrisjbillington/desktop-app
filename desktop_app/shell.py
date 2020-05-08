@@ -39,20 +39,35 @@ class _ModuleConfig:
     def __init__(self, module_name):
         self.module_name = module_name
         self.package_directory = get_package_directory(module_name)
+        self.module_directory = Path(
+            self.package_directory, *self.module_name.split('.')[1:]
+        )
+
         config = self._load_config()
+
         self.org_name = config.get('org_name', None)
         self.product_name = config.get('product_name', None)
         module_config = config.get('modules', {}).get(module_name, {})
+
         self.display_name = module_config.get('display_name', module_name)
         env = short_envname()
         if env is not None:
             self.display_name += f' ({env})'
-        self.ico_file = module_config.get(
-            'ico', os.path.join(self.package_directory, f'{module_name}.ico')
-        )
-        self.svg_file = module_config.get(
-            'svg', os.path.join(self.package_directory, f'{module_name}.svg')
-        )
+
+        winicon = module_config.get('winicon', None)
+        if winicon is None:
+            self.winicon = self.module_directory / f'{module_name}.ico'
+        else:
+            self.winicon = self.package_directory / winicon
+
+        icon = module_config.get('icon', None)
+        if icon is None:
+            self.icon = self.module_directory / f'{module_name}.svg'
+            if not self.icon.exists():
+                self.icon = self.module_directory / f'{module_name}.png'
+        else:
+            self.icon = self.package_directory / winicon
+
         self.launcher_script_path = self._get_launcher_script_path()
         self.appid = self._get_appid()
 
@@ -60,8 +75,9 @@ class _ModuleConfig:
         """Load 'desktop-app.json' from the module package directory and return it. If
         it doesn't exist, return an empty dict."""
         try:
-            with open(Path(self.package_directory, CONFIG_FILENAME)) as f:
-                return json.load(f)
+            return json.loads(
+                (self.package_directory / CONFIG_FILENAME).read_text(encoding='utf8')
+            )
         except FileNotFoundError:
             return {}
 
@@ -72,11 +88,9 @@ class _ModuleConfig:
         As such it will not be correct when used with `pip install --user` or any other
         custom options to pip that modify the install prefix."""
         # Look up the path to the launcher:
-        script_path = str(
-            Path(sysconfig.get_path('scripts'), self.module_name).absolute()
-        )
+        script_path =  Path(sysconfig.get_path('scripts'), self.module_name).absolute()
         if WINDOWS:
-            return script_path + '-gui.exe'
+            return Path(script_path.parent, script_path.name + '-gui')
         return script_path
 
     def _get_appid(self):
@@ -107,15 +121,15 @@ class _ModuleConfig:
 
         """
         # Hash the path to the Python interpreter so that we can include in the appid a
-        # segment unique to the Python environment. Note the case-insensitivity - I've
-        # observed the case differing depending on whether a virtualenv is active, so
-        # better use normcase to not vary with changes in case:
+        # segment unique to the Python environment. .resolve() on the path is important
+        # as it gets the correct case of the path - I've observed that in a virtualenv
+        # sys.executable is all lower case. is active, so better use normcase to not
+        # vary with changes in case:
 
         if WINDOWS:
             replacements = {' ': '', '_': '', '.': '-'}
-            interpreter_hash = hashlib.sha256(
-                os.fsencode(os.path.normcase(sys.executable))
-            ).hexdigest()[:16]
+            interpreter = Path(sys.executable).resolve()
+            interpreter_hash = hashlib.sha256(bytes(interpreter)).hexdigest()[:16]
             appid_parts = []
             for part in [self.org_name, self.product_name, self.module_name]:
                 if part is None:
@@ -150,27 +164,27 @@ def set_process_appid(module_name):
         # set the tk classname to sys.argv[0] themselves.
         symlink_path = _launcher_script_symlink_path(config)
         if symlink_path is not None:
-            sys.argv[0] = symlink_path
+            sys.argv[0] = str(symlink_path)
         else:
-            sys.argv[0] = config.launcher_script_path
+            sys.argv[0] = str(config.launcher_script_path)
     # TODO: consider macos
 
 
 def _default_shortcut_dir(config):
     if WINDOWS:
-        path_parts = [get_start_menu()]
+        path = get_start_menu()
         if config.company_name is not None:
-            path_parts.append(config.company_name)
+            path /= config.company_name
         if config.product_name is not None:
-            path_parts.append(config.product_name)
-        return os.path.join(path_parts)
+            path /= config.product_name
+        return path
     elif LINUX:
         return get_user_applications()
     elif MACOS:
         raise NotImplementedError
 
 
-def _shortcut_basename(config):
+def _shortcut_name(config):
     if WINDOWS:
         return f'{config.display_name}.lnk'
     elif LINUX:
@@ -181,7 +195,7 @@ def _shortcut_basename(config):
 
 def _launcher_script_symlink_path(config):
     if config.appid != config.module_name:
-        return str(Path(config.launcher_script_path).parent / config.appid)
+        return config.launcher_script_path.parent / config.appid
 
 
 def install(module_name, path=None, verbose=False):
@@ -192,21 +206,22 @@ def install(module_name, path=None, verbose=False):
     conda or virtualenv environment) matches the name of the executable it points to, a
     symbolic link called `<module_name>-<envname>` will be created."""
     config = _ModuleConfig.instance(module_name)
-    if path is None:
+    if path is not None:
+        path = Path(path)
+    else:
         path = _default_shortcut_dir(config)
-    basename = _shortcut_basename(config)
-    shortcut_path = os.path.join(path, basename)
-    if os.path.exists(shortcut_path):
+    shortcut_path = path / _shortcut_name(config)
+    if shortcut_path.exists():
         if verbose:
             msg = f'warning: overwriting existing file {shortcut_path}'
             print(msg, file=sys.stderr)
-        os.unlink(shortcut_path)
+        shortcut_path.unlink()
     if WINDOWS:
         create_shortcut(
             shortcut_path,
             config.launcher_script_path,
             working_directory=Path.home(),
-            icon_file=config.ico_file,
+            icon_file=config.winicon,
             display_name=config.display_name,
             appusermodel_id=config.appid,
         )
@@ -218,12 +233,11 @@ def install(module_name, path=None, verbose=False):
             shortcut_path,
             target=symlink_path or config.launcher_script_path,
             display_name=config.display_name,
-            icon_file=config.svg_file,
+            icon_file=config.icon,
         )
         if verbose:
             print(f' -> created {shortcut_path}')
         if symlink_path is not None:
-            symlink_path = Path(symlink_path)
             if symlink_path.exists():
                 if verbose:
                     msg = f'warning: overwriting existing symlink {symlink_path}'
@@ -233,7 +247,7 @@ def install(module_name, path=None, verbose=False):
             if verbose:
                 print(
                     f' -> created symlink {symlink_path} -> '
-                    + f'{os.path.basename(config.launcher_script_path)}'
+                    + f'{config.launcher_script_path.name}'
                 )
     elif MACOS:
         raise NotImplementedError
@@ -244,14 +258,17 @@ def uninstall(module_name, path=None, verbose=False):
     menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS. If a
     symlink was created within the scripts folder in install(), delete it."""
     config = _ModuleConfig.instance(module_name)
-    if path is None:
+    if path is not None:
+        path = Path(path)
+    else:
         path = _default_shortcut_dir(config)
-    files_to_delete = [os.path.join(path, _shortcut_basename(config))]
-    if not WINDOWS and config.appid != config.module_name:
-        files_to_delete.append(Path(config.launcher_script_path).parent / config.appid)
+    files_to_delete = [path / _shortcut_name(config)]
+    symlink_path = _launcher_script_symlink_path(config)
+    if symlink_path is not None:
+        files_to_delete.append(symlink_path)
     for file in files_to_delete:
         try:
-            os.unlink(file)
+            file.unlink()
             if verbose:
                 print(f' -> deleted {file}')
         except FileNotFoundError:
