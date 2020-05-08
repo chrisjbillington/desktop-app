@@ -1,13 +1,16 @@
 import argparse
-from desktop_app.shell import install, uninstall
+from .shell import install, uninstall
+
 
 def main():
-    parser = argparse.ArgumentParser(description="""Create (or remove) a Start menu
-        shortcut (Windows) or .desktop file (Linux) to run the Python module of the
-        given name. The package owning the module must have configured appropriate
-        entry_points for the module, and either have a desktop-app.json specifying the
-        location of the icon files to use, or must have the files in the default
-        locations. See the main desktop-app documentation for details.""")
+    parser = argparse.ArgumentParser(
+        description="""Create (or remove) a Start menu shortcut (Windows) or .desktop
+            file (Linux) to run the Python module of the given name. The package owning
+            the module must have configured appropriate entry_points for the module, and
+            either have a desktop-app.json specifying the location of the icon files to
+            use, or must have the files in the default locations. See the main
+            desktop-app documentation for details."""
+    )
 
     parser.add_argument(
         action="store",
@@ -21,15 +24,14 @@ def main():
         action="store",
         default=None,
         help="""Directory to create/delete shortcut or .desktop file. If not given,
-            defaults to the Start menu on Windows, and to ~/local/share/applications on
+            defaults to the Start menu on Windows, and to ~/.local/share/applications on
             Linux.""",
     )
     parser.add_argument(
         '-q',
         '--quiet',
         action="store_true",
-        help="""Don't print the names of files
-            created/deleted.""",
+        help="""Don't print the names of files created/deleted.""",
     )
     parser.add_argument(
         action="store", dest="module",
@@ -40,6 +42,7 @@ def main():
         install(args.module, path=args.path, verbose=not args.quiet)
     if args.action == 'uninstall':
         uninstall(args.module, path=args.path, verbose=not args.quiet)
+
 
 if __name__ == '__main__':
     main()
