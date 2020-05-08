@@ -1,5 +1,4 @@
 import sys
-import os
 import sysconfig
 import hashlib
 import json
@@ -66,7 +65,7 @@ class _ModuleConfig:
             if not self.icon.exists():
                 self.icon = self.module_directory / f'{module_name}.png'
         else:
-            self.icon = self.package_directory / winicon
+            self.icon = self.package_directory / icon
 
         self.launcher_script_path = self._get_launcher_script_path()
         self.appid = self._get_appid()
@@ -88,7 +87,7 @@ class _ModuleConfig:
         As such it will not be correct when used with `pip install --user` or any other
         custom options to pip that modify the install prefix."""
         # Look up the path to the launcher:
-        script_path =  Path(sysconfig.get_path('scripts'), self.module_name).absolute()
+        script_path = Path(sysconfig.get_path('scripts'), self.module_name).absolute()
         if WINDOWS:
             return Path(script_path.parent, script_path.name + '-gui')
         return script_path
