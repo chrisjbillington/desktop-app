@@ -33,6 +33,8 @@ def create_shortcut(
     """Create a Windows shortcut at the given path, which should be a filepath ending in
     '.lnk'. Arguments should be a list or tuple of arguments - not a single string of
     arguments separated by spaces."""
+    shortcut_path = Path(shortcut_path)
+    shortcut_path.parent.mkdir(parents=True, exist_ok=True)
     _checkwindows()
     objShell = Dispatch('WScript.Shell')
     shortcut = objShell.CreateShortcut(str(shortcut_path))
@@ -50,7 +52,7 @@ def create_shortcut(
     if appusermodel_id is not None:
         # Edit the shortcut to associate the AppUserModel_ID with it:
         store = propsys.SHGetPropertyStoreFromParsingName(
-            shortcut_path, None, shellcon.GPS_READWRITE, propsys.IID_IPropertyStore
+            str(shortcut_path), None, shellcon.GPS_READWRITE, propsys.IID_IPropertyStore
         )
         store.SetValue(
             pscon.PKEY_AppUserModel_ID, propsys.PROPVARIANTType(appusermodel_id)

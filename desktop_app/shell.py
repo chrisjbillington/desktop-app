@@ -152,6 +152,7 @@ def set_process_appid(module_name):
     windows correctly, can be pinned etc."""
     config = _ModuleConfig.instance(module_name)
     if WINDOWS:
+        sys.argv[0] = str(config.launcher_script_path)
         set_process_appusermodel_id(config.appid)
     else:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
@@ -172,8 +173,8 @@ def set_process_appid(module_name):
 def _default_shortcut_dir(config):
     if WINDOWS:
         path = get_start_menu()
-        if config.company_name is not None:
-            path /= config.company_name
+        if config.org_name is not None:
+            path /= config.org_name
         if config.product_name is not None:
             path /= config.product_name
         return path
