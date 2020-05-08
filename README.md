@@ -8,7 +8,7 @@ Linux (Macos support planned).
 If your application is a Python module runnable from the command line as `python -m
 mymodule`, then with minimal configuration `desktop-app` can:
 
-* Create a launcher `.exe` that runs your application
+* Create a launcher script (or `.exe` on windows) that runs your application
     * after activating a `conda` environment or virtualenv, if any
     * with a hidden console if on Windows
 * Create a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
@@ -17,8 +17,10 @@ mymodule`, then with minimal configuration `desktop-app` can:
   and can be pinned correctly.
 
 
-Usage
-=====
+Basic Usage
+===========
+
+
 
 
 Details

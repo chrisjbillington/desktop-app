@@ -1,6 +1,5 @@
 {
     "org_name": "Old McDonald's Farm",
-    "product_name": "Animals",
     "modules": {
         "oink": {
             "display_name": "Pigs",

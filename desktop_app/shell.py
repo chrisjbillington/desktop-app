@@ -45,7 +45,6 @@ class _ModuleConfig:
         config = self._load_config()
 
         self.org_name = config.get('org_name', None)
-        self.product_name = config.get('product_name', None)
         module_config = config.get('modules', {}).get(module_name, {})
 
         self.display_name = module_config.get('display_name', module_name)
@@ -96,13 +95,12 @@ class _ModuleConfig:
         """ Create a string identifying the application, for use in OS interfaces such
         as as a Windows AppUserModelID. on Windows we use:
 
-        <OrgName>.<ProductName>.<ModuleName>.Python-<hexdigits>
+        <OrgName>.<ModuleName>.Python-<hexdigits>
 
-        OrgName or ProductName are omitted if not present in the configuration. The
-        last field contains a hash of the path to the Python interpreter for the module,
-        ensuring the appid is unique to the Python environment. The first three fields
-        are converted to CamelCase, periods replaced with hyphens and underscores
-        removed.
+        OrgName is omitted if not present in the configuration. The last field contains
+        a hash of the path to the Python interpreter for the module, ensuring the appid
+        is unique to the Python environment. The first three fields are converted to
+        CamelCase, periods replaced with hyphens and underscores removed.
 
         On Linux we use:
 
@@ -131,7 +129,7 @@ class _ModuleConfig:
             interpreter_dir = Path(sys.executable).resolve().parent
             interpreter_hash = hashlib.sha256(bytes(interpreter_dir)).hexdigest()[:16]
             appid_parts = []
-            for part in [self.org_name, self.product_name, self.module_name]:
+            for part in [self.org_name, self.module_name]:
                 if part is None:
                     continue
                 camelcase_part = part.title()
@@ -175,9 +173,7 @@ def _default_shortcut_dir(config):
     if WINDOWS:
         path = get_start_menu()
         if config.org_name is not None:
-            path /= config.org_name
-        if config.product_name is not None:
-            path /= config.product_name
+            return path / config.org_name
         return path
     elif LINUX:
         return get_user_applications()

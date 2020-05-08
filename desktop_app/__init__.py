@@ -17,12 +17,6 @@ except LookupError:
 
 from .launcher import entry_point
 
-from .environment import (
-    detect_conda_env,
-    activate_conda_env,
-    detect_venv,
-    activate_venv,
-)
 from .shell import set_process_appid, install, uninstall
 
 
@@ -31,8 +25,4 @@ __all__ = [
     'set_process_appid',
     'install',
     'uninstall',
-    'detect_conda_env',
-    'activate_conda_env',
-    'detect_venv',
-    'activate_venv',
 ]
