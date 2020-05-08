@@ -132,13 +132,13 @@ class _ModuleConfig:
                 return self.module_name
             return f'{self.module_name}-{env}'
 
+
 def set_process_appid(module_name):
     """Associate the currently running process with the shortcut for the given module
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
     config = _ModuleConfig.instance(module_name)
     if WINDOWS:
-        sys.argv[0] = config.launcher_script_path
         set_process_appusermodel_id(config.appid)
     else:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
@@ -148,9 +148,13 @@ def set_process_appid(module_name):
         # If not, the user will need to make the right function call depending on their
         # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user needs to
         # set the tk classname to sys.argv[0] themselves.
-        sys.argv[0] = _launcher_script_symlink_path(config)
+        symlink_path = _launcher_script_symlink_path(config)
+        if symlink_path is not None:
+            sys.argv[0] = symlink_path
+        else:
+            sys.argv[0] = config.launcher_script_path
     # TODO: consider macos
-        
+
 
 def _default_shortcut_dir(config):
     if WINDOWS:
