@@ -59,7 +59,8 @@ def entry_point():
         popen_kwargs['env'] = env
 
     python = Path(sys.executable)
-    if python.name == Path('pythonw.exe'):  # Case-insensitive comparison on Windows
+    # Case-insensitive comparison requried on Windows
+    if python.name.lower() == 'pythonw.exe':
         python = python.parent / 'python.exe'
         # TODO: can use subprocess.CREATE_NO_WINDOW once Python 3.6 is end-of-life
         CREATE_NO_WINDOW = 1 << 27
