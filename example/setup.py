@@ -11,11 +11,9 @@ setup(
     setup_requires=['setuptools'],
     install_requires=["desktop-app"],
     include_package_data=True,
-    package_data={"": ['*.svg', '*.ico', 'desktop-app.json'],},
+    package_data={"": ['*.svg', '*.ico', 'desktop-app.json']},
     entry_points={
-        'console_scripts': [
-            'oink = desktop_app:entry_point',
-            'oink.honk = desktop_app:entry_point',
-        ],
+        'console_scripts': ['oink = desktop_app:entry_point'],
+        'gui_scripts': ['oink-gui = desktop_app:entry_point'],
     },
 )

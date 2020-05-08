@@ -194,7 +194,7 @@ def _shortcut_name(config):
 
 
 def _launcher_script_symlink_path(config):
-    if config.appid != config.module_name:
+    if not WINDOWS and config.appid != config.module_name:
         return config.launcher_script_path.parent / config.appid
 
 
