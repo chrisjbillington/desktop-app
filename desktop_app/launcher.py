@@ -25,8 +25,8 @@ def entry_point():
     is started with a hidden console window. Otherwise the subprocess is run with
     `sys.executable`.
 
-    If `sys.executable` appears to be within a conda or virtualenv environment, then the
-    environment variables of the child process will be modified such that the
+    If `sys.executable` appears to be within a conda env or virtual environment, then
+    the environment variables of the child process will be modified such that the
     environment is effectively activated for the subprocess. In this way an
     `entry_points` script may be run directly (such as from a start menu shortcut)
     without activating the virtual environment it is contained within, and the child

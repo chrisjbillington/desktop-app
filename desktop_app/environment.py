@@ -79,8 +79,8 @@ def activate_conda_env(name, prefix):
 
 @lru_cache
 def detect_venv():
-    """Inspect whether sys.executable is within a virtualenv and if it is, return the
-    virtualenv Path of prefix. Otherwise return None"""
+    """Inspect whether sys.executable is within a virtual environment and if it is,
+    return the virtual environment Path of prefix. Otherwise return None"""
     if hasattr(sys, 'real_prefix'):
         # virtualenv < v20 sets sys.real_prefix, which doesn't exist otherwise
         return Path(sys.prefix)
@@ -90,10 +90,11 @@ def detect_venv():
 
 
 def activate_venv(prefix):
-    """Modify environment variables so as to effectively activate the given virtualenv
-    from the perspective of child processes. If the virtualenv appears to already be
-    active, do nothing. Does not actually set environment variables, instead returns a
-    copy that may be passed to subprocess.Popen as the env arg."""
+    """Modify environment variables so as to effectively activate the given virtual
+    environment from the perspective of child processes. If the virtual environment
+    appears to already be active, do nothing. Does not actually set environment
+    variables, instead returns a copy that may be passed to subprocess.Popen as the env
+    arg."""
     prefix = Path(prefix)
     env = os.environ.copy()
     current_env = env.get('VIRTUAL_ENV')

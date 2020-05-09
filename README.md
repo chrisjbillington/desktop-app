@@ -9,7 +9,7 @@ If your application is a Python module runnable from the command line as `python
 mymodule`, then with minimal configuration `desktop-app` can:
 
 * Create a launcher script (or `.exe` on windows) that runs your application
-    * after activating a `conda` environment or virtualenv, if any
+    * after activating a `conda` env or virtuial environment, if any
     * with a hidden console if on Windows
 * Create a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
   application from your desktop applications menu

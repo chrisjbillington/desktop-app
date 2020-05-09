@@ -106,11 +106,11 @@ class _ModuleConfig:
 
         <module_name>-<envname>
 
-        where <envname> is the name of the conda or virtualenv environment. The env is
-        omitted if it's a conda env called 'base' or a virtualenv called '.venv' or
-        'venv'. The reason we use a different format to Windows is that this will be
-        used as the executable name of the app's process (sys.argv[0]), and so it's
-        slightly more important for it to be user-friendly as it will appear as the
+        where <envname> is the name of the conda or virtual environment. The env is
+        omitted if it's a conda env called 'base' or a virtual environment called
+        '.venv' or 'venv'. The reason we use a different format to Windows is that this
+        will be used as the executable name of the app's process (sys.argv[0]), and so
+        it's slightly more important for it to be user-friendly as it will appear as the
         default window title in some GUI toolkits.
 
         On macos it's the same as Linux, but this is likely to change when proper macos
@@ -120,7 +120,7 @@ class _ModuleConfig:
         # Hash the path to the Python interpreter directory so that we can include in
         # the appid a segment unique to the Python environment. .resolve() on the path
         # is important as it gets the correct case of the path - I've observed that in a
-        # virtualenv sys.executable is all lower case. Using the directory instead of
+        # sys.executable within a venv is all lower case. Using the directory instead of
         # the interpreter itself is important so that the hash is the same regardless of
         # whether python or pythonw is in use.
 
@@ -200,7 +200,7 @@ def install(module_name, path=None, verbose=False):
     the start menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS.
     If path is given, the shortcut will be created in the given directory instead. On
     Linux, in order to ensure the name of the shortcut (which may contain the name of a
-    conda or virtualenv environment) matches the name of the executable it points to, a
+    conda or virtual environment) matches the name of the executable it points to, a
     symbolic link called `<module_name>-<envname>` will be created."""
     config = _ModuleConfig.instance(module_name)
     if path is not None:
