@@ -3,9 +3,9 @@ from setuptools import setup
 setup(
     name='oink',
     version='1.0',
-    author='Your Name Here',
-    author_email="your@email.here",
-    url='http://your.url/here',
+    author='Old MacDonald',
+    author_email="macdonald@oldmacdonaldsfarm",
+    url='http://eie.io',
     packages=["oink"],
     zip_safe=False,
     setup_requires=['setuptools'],

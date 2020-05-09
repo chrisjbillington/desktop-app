@@ -9,9 +9,9 @@ If your application is a Python module runnable from the command line as `python
 mymodule`, then with minimal configuration `desktop-app` can:
 
 * Create a launcher script (or `.exe` on windows) that runs your application
-    * after activating a `conda` env or virtuial environment, if any
+    * after activating a `conda` env or virtual environment, if any
     * with a hidden console if on Windows
-* Create a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
+* Install a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
   application from your desktop applications menu
 * Ensure your application appears in the taskbar with the correct name and icon,
   and can be pinned correctly.
@@ -20,27 +20,61 @@ mymodule`, then with minimal configuration `desktop-app` can:
 Basic Usage
 ===========
 
+Here we'll follow the example in this repository for a module called `oink`, developed
+by Old MacDonald's Farm. Before Old MacDonald had heard of `desktop-app`, he had a
+packages that looked like this:
+
+
+1.\ Configure launcher scripts for your module
+------------------------------------------
 
 
 
-Details
+
+Reasons
 =======
 
-Hidden console on Windows
--------------------------
+Why a hidden console on Windows?
+--------------------------------
 
 The usual recommendation to run Python GUI applications is with `Pythonw.exe`, which
 does not create a console window. However, when running under `Pythonw.exe`, a simple
-`print()` call will raise an exeption, and certain low-level output redirection of
-subprocesses does not work due to the `stdout` and `stderr` filehandles not existing.
+`print()` call will raise an exception, and [certain low-level output
+redirection](https://github.com/labscript-suite/lyse/issues/48#issuecomment-609371880)
+of subprocesses does not work due to the `stdout` and `stderr` filehandles not existing.
+Furthermore, some tools may create subprocesses that call `cmd.exe`, or `Python.exe`,
+briefly popping up console windows of their own since one doesn't already exist.
 
-So that you don't have to worry about your application producing some output, and to
-ensure output filehandles exist from the perspective of subprocesses, in Windows the
-launcher script runs your application in a subprocess using `Python.exe`, but with the
-`CREATE_NO_WINDOW` flag so that the console exists, but is not visible.
+In order to be able to ignore these problems and code the same as you would with a
+console, in Windows the launcher script runs your application in a subprocess using
+`Python.exe`, but with the `CREATE_NO_WINDOW` flag so that the console exists, but is
+not visible.
+
+Why activate environments?
+--------------------------
+
+Activating environments is not strictly necessary except when using conda on Windows, in
+which case some compiled extensions (notably, Qt libraries) cannot be imported unless
+the environment is active.
+
+However, even on other platforms activating the environment simplifies running other
+programs that might be installed to the `bin`/`Scripts` directory of the virtual
+environment - calling code would otherwise have to manually find this directory and
+provide the full path to the programs it wants to run.
 
 
 Limitations
------------
+===========
 
-No pip install --user because we can't work out where the scripts directory is
+`desktop-app` is compatible with packages installed system-wide and within virtual
+environments. However, it is not compatible with packages installed either with `pip
+install --user`, or with a modified `--prefix` such as how Debian-based distributions
+install packages to `/usr/local/` when `pip` is run with `sudo`.
+
+This is because `desktop-app` can't find the `entry_points` scripts in these cases in
+order to point start menu shortcuts and .desktop files at them. It just looks in
+`sysconfig.get_path('scripts')`, and turns out that looking in all other possible places
+is non-trivial. Obviously it's possible since `pip uninstall` manages to remove these
+files (evidence that it can find them!), but I haven't figured it out yet and it's not
+really worth it when `sudo pip install` and `pip install --user` are usually bad ideas
+anyway.
