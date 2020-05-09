@@ -2,7 +2,7 @@
     "org_name": "Old McDonald's Farm",
     "modules": {
         "oink": {
-            "display_name": "Pigs",
+            "display_name": "Oink App",
             "icon": "oink.svg",
             "winicon": "oink.ico"
         }
