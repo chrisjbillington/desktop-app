@@ -26,7 +26,7 @@ jobs:
         run: pip install Pillow pyscreenshot
       - name: Run example app
         run: |
-          oink-gui
+          invoke-item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm\Oink App.lnk"
           python -c "from pyscreenshot import grab; im = grab(); im.save('screenshot.png')"
       - name: Upload screenshot
         uses: actions/upload-artifact@v2
