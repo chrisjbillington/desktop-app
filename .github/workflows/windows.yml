@@ -26,13 +26,20 @@ jobs:
         run: pip install Pillow pyscreenshot
       - name: Run example app
         run: |
-          notepad
-          invoke-item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm\Oink App.lnk"
-          Start-Sleep -s 6
-          python -c "from pyscreenshot import grab; im = grab(); im.save('screenshot.png')"
+          $shell = new-object -com "Shell.Application"
+          $folder = $shell.Namespace("$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm")
+          $item = $folder.Parsename("Oink App.lnk")
+          $verb = $item.Verbs() | ? {$_.Name -eq 'Pin to Tas&kbar'}
+          if ($verb) {$verb.DoIt()}
+          Start-Sleep -s 1
+          mkdir screenshots
+          python -c "from pyscreenshot import grab; im = grab(); im.save('screenshots/screenshot-1.png')"
+          Invoke-Item $item.Path()
+          Start-Sleep -s 1
+          python -c "from pyscreenshot import grab; im = grab(); im.save('screenshots/screenshot-2.png')"
           Get-Process | Where-Object { $_.MainWindowTitle }
-      - name: Upload screenshot
+      - name: Upload screenshots
         uses: actions/upload-artifact@v2
         with:
-          name: screenshot
-          path: screenshot.png
+          name: screenshots
+          path: screenshots
