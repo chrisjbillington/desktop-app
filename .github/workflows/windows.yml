@@ -21,6 +21,7 @@ jobs:
           pip install -e .
       - name: Install example app
         run: |
+          .venv\Scripts\activate
           pip install -e example
           desktop-app install oink
           get-StartApps | findstr -I oink
