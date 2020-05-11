@@ -15,6 +15,8 @@ jobs:
           python-version: 3.8
       - name: Install package
         run: |
+          python -m venv .venv
+          .venv\Scripts\activate
           python -m pip install --upgrade pip setuptools wheel
           pip install -e .
       - name: Install example app
@@ -28,7 +30,7 @@ jobs:
         run: |
           notepad
           invoke-item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm\Oink App.lnk"
-          Start-Sleep -s 6
+          Start-Sleep -s 2
           python -c "from pyscreenshot import grab; im = grab(); im.save('screenshot.png')"
           Get-Process | Where-Object { $_.MainWindowTitle }
       - name: Upload screenshot
