@@ -25,7 +25,7 @@ def get_package_directory(module_name):
     return Path(spec.origin).parent
 
 
-@lru_cache
+@lru_cache()
 def detect_conda_env():
     """Inspect whether `sys.executable` is within a conda environment and if it is,
     return the environment name and Path of its prefix. Otherwise return None, None"""
@@ -77,7 +77,7 @@ def activate_conda_env(name, prefix):
     return env
 
 
-@lru_cache
+@lru_cache()
 def detect_venv():
     """Inspect whether sys.executable is within a virtual environment and if it is,
     return the virtual environment Path of prefix. Otherwise return None"""
