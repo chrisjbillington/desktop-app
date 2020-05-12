@@ -33,7 +33,7 @@ jobs:
           invoke-item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm\Oink App.lnk"
           Start-Sleep -s 6
           python -c "from pyscreenshot import grab; im = grab(); im.save('screenshot.png')"
-          Get-Process | Where-Object { $_.MainWindowTitle }
+          Get-Process | Where { $_.MainWindowTitle } | format-table Id,Name,ProcessName,MainWindowTitle -AutoSize
       - name: Upload screenshot
         uses: actions/upload-artifact@v2
         with:
