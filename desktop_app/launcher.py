@@ -78,6 +78,13 @@ def entry_point():
         popen_kwargs['creationflags'] = CREATE_NO_WINDOW
 
     try:
-        sys.exit(subprocess.call([python, script_path] + sys.argv[1:], **popen_kwargs))
+        print(python)
+        print(script_path)
+        print(sys.argv[1:])
+        sys.exit(
+            subprocess.call(
+                [str(python), str(script_path)] + sys.argv[1:], **popen_kwargs
+            )
+        )
     except KeyboardInterrupt:
         sys.exit(1)
