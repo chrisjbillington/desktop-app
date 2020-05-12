@@ -5,14 +5,17 @@ on: [push]
 jobs:
   test:
     name: Run tests
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Install Python
+      - name: Install Python ${{ matrix.python-version }}
         uses: actions/setup-python@v1
         with:
-          python-version: 3.8
+          python-version: ${{ matrix.python-version }}
       - name: Install package
         run: |
           python -m venv .venv
@@ -31,17 +34,12 @@ jobs:
         run: |
           notepad
           invoke-item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm\Oink App.lnk"
-          Start-Sleep -s 6
-          python -c "from pyscreenshot import grab; im = grab(); im.save('screenshot.png')"
+          Start-Sleep -s 5
+          python -c "from pyscreenshot import grab; grab().save('screenshot.png')"
           Get-Process | Where { $_.MainWindowTitle } | format-table Id,Name,ProcessName,MainWindowTitle -AutoSize
       - name: Upload screenshot
         uses: actions/upload-artifact@v2
         with:
           name: screenshot
           path: screenshot.png
-      - name: Get shortcut context items
-        run: |
-          $shell = new-object -com "Shell.Application"
-          $folder = $shell.Namespace("$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm")
-          $item = $folder.Parsename("Oink App.lnk")
-          $item.Verbs()
+
