@@ -39,3 +39,9 @@ jobs:
         with:
           name: screenshot
           path: screenshot.png
+      - name: Get shortcut context items
+        run: |
+          $shell = new-object -com "Shell.Application"
+          $folder = $shell.Namespace("$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Old McDonald's Farm")
+          $item = $folder.Parsename("Oink App.lnk")
+          $item.Verbs()
