@@ -1,4 +1,5 @@
 import sys
+import os
 import subprocess
 from pathlib import Path
 
@@ -39,7 +40,7 @@ def entry_point():
     initialisation is done in `__init__`, then the script should import the main package
     before such initialisation is required.
     """
-    module_name, *_ = Path(sys.argv[0]).resolve().name.rsplit('-gui', 1)
+    module_name, *_ = Path(os.path.normcase(sys.argv[0])).name.rsplit('-gui', 1)
     # Find the path of the module:
     package_directory = get_package_directory(module_name)
     script_path = Path(package_directory, *module_name.split('.')[1:])
