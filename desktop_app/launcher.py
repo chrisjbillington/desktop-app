@@ -9,6 +9,7 @@ from .environment import (
     detect_venv,
     activate_venv,
     get_package_directory,
+    WINDOWS,
 )
 
 
@@ -40,7 +41,16 @@ def entry_point():
     initialisation is done in `__init__`, then the script should import the main package
     before such initialisation is required.
     """
-    module_name, *_ = Path(os.path.normcase(sys.argv[0])).name.rsplit('-gui', 1)
+    # Resolve symlinks on Unix since we actually create symlinks to the script - but
+    # dont' call resolve() on Windows since this can raise an error for Microsoft Store
+    # Python, where we don't have permission to resolve that path (even though we're
+    # allowed to run it!)
+    if WINDOWS:
+        script = Path(sys.argv[0])
+    else:
+        script = Path(sys.argv[0]).resolve()
+
+    module_name, *_ = script.name.rsplit('-gui', 1)
     # Find the path of the module:
     package_directory = get_package_directory(module_name)
     script_path = Path(package_directory, *module_name.split('.')[1:])
