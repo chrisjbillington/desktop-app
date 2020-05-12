@@ -59,6 +59,14 @@ def create_shortcut(
         )
         store.Commit()
 
+    # Refresh the icon cache:
+    shell.SHChangeNotify(
+        shellcon.SHCNE_ASSOCCHANGED,
+        shellcon.SHCNF_IDLIST | shellcon.SHCNF_FLUSH,
+        None,
+        None,
+    )
+
 def set_process_appusermodel_id(appid):
     _checkwindows()
     shell.SetCurrentProcessExplicitAppUserModelID(appid)
