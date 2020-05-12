@@ -78,9 +78,6 @@ def entry_point():
         popen_kwargs['creationflags'] = CREATE_NO_WINDOW
 
     try:
-        print(python)
-        print(script_path)
-        print(sys.argv[1:])
         sys.exit(
             subprocess.call(
                 [str(python), str(script_path)] + sys.argv[1:], **popen_kwargs
