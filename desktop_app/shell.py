@@ -118,16 +118,13 @@ class _ModuleConfig:
         support is introduced.
 
         """
-        # Hash the path to the Python interpreter directory so that we can include in
-        # the appid a segment unique to the Python environment. Normalise the case
-        # first, since I've observed that in within a venv sys.executable is all lower
-        # case. Using the directory instead of the interpreter itself is important so
-        # that the hash is the same regardless of whether python or pythonw is in use.
-
+        # Hash the install prefix so that we can include in the appid a segment unique
+        # to the Python environment. Normalise the case first, since I've observed that
+        # in within a venv sys.executable is all lower case.
         if WINDOWS:
             replacements = {' ': '', '_': '', '.': '-'}
-            interpreter_dir = Path(os.path.normcase(sys.executable)).parent
-            interpreter_hash = hashlib.sha256(bytes(interpreter_dir)).hexdigest()[:16]
+            install_prefix = Path(os.path.normcase(sys.prefix))
+            interpreter_hash = hashlib.sha256(bytes(install_prefix)).hexdigest()[:16]
             appid_parts = []
             for part in [self.org_name, self.module_name]:
                 if part is None:

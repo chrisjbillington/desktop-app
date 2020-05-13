@@ -29,10 +29,7 @@ def get_package_directory(module_name):
 def detect_conda_env():
     """Inspect whether `sys.executable` is within a conda environment and if it is,
     return the environment name and Path of its prefix. Otherwise return None, None"""
-    prefix = Path(sys.executable).parent
-    if not WINDOWS:
-        # On unix, python is in <prefix>/bin, and in windows it's directly in <prefix>
-        prefix = prefix.parent
+    prefix = Path(sys.prefix)
     if not (prefix / 'conda-meta').is_dir():
         # Not a conda env
         return None, None
