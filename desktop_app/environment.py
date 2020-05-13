@@ -1,5 +1,7 @@
 import sys
 import os
+import site
+import sysconfig
 import importlib.util
 import platform
 from functools import lru_cache
@@ -11,6 +13,72 @@ LINUX = _os == 'Linux'
 MACOS = _os == 'Darwin'
 if not (WINDOWS or LINUX or MACOS):
     raise EnvironmentError("Can't determine operating system")
+
+
+# Three possible locations for scripts.
+
+# Main scripts dir for the Python environment:
+PY_SCRIPTS = Path(sysconfig.get_path('scripts'))
+# Used in Debian-based distros for packages installed with `sudo pip install`:
+LOCAL_SCRIPTS = Path('/usr/local/bin')
+# Packages installed to the user's home directory with `pip install --local`. Even if
+# the user doesn't type `--local`, this option is enabled by default on Debian-based
+# distros when running without sudo, and for the Python shipped in the Microsoft Store:
+if WINDOWS:
+    USER_SCRIPTS = Path(sysconfig.get_path('scripts', scheme='nt_user'))
+else:
+    USER_SCRIPTS = Path(sysconfig.get_path('scripts', scheme='posix_user'))
+
+# Possible locations for installed packages:
+
+# Arbitrary number of site packages directories:
+SITE_PACKAGES = [Path(s) for s in site.getsitepackages()]
+# Only one user site packages directory:
+USER_SITE_PACKAGES = Path(site.getusersitepackages())
+
+
+def _reverse_egg_link_lookup(directory):
+    # For packages 'installed' with `pip install -e`, the import path is the development
+    # directory, which is not very useful in figuring out what the corresponding scripts
+    # directory is. This function looks through canonical installation locations for
+    # .egg-link files, and if any is found that points to the given directory, the
+    # parent directory of the .egg-link file is returned. Otherwise returns None.
+    directory = Path(directory).absolute()
+    for sitedir in SITE_PACKAGES + [USER_SITE_PACKAGES]:
+        sitedir = Path(sitedir).absolute()
+        if sitedir.exists and sitedir.is_dir:
+            for file in sitedir.iterdir():
+                if file.suffix == '.egg-link':
+                    # The first line is the path to the .egg:
+                    linkpath = Path(file.read_text().splitlines()[0])
+                     # is allowed to be relative to the containing dir:
+                    linkpath = Path(sitedir, linkpath)
+                    if linkpath == directory:
+                        return sitedir
+
+
+def _get_install_directory(module_name):
+    """Return the installation directory of the module - an entry in SITE_PACKAGES, or
+    USER_SITE_PACKAGES."""
+    import_path = get_package_directory(module_name).parent
+    for canonical_install_path in SITE_PACKAGES + [USER_SITE_PACKAGES]:
+        if import_path == canonical_install_path:
+            return canonical_install_path
+    # May return None if there is no egg-link to the package directory either
+    return _reverse_egg_link_lookup(import_path)
+
+
+def get_scripts_dir(module_name):
+    """Return the directory of the scripts installed with the package supplying the
+    given module. If the package is not installed, returns None."""
+    install_dir = _get_install_directory(module_name)
+    if install_dir is not None:
+        if Path('/usr/local') in install_dir.parents:
+            return LOCAL_SCRIPTS
+        elif install_dir in SITE_PACKAGES:
+            return PY_SCRIPTS
+        elif install_dir == USER_SITE_PACKAGES:
+            return USER_SCRIPTS
 
 
 def get_package_directory(module_name):

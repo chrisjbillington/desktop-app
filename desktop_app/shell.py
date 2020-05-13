@@ -1,6 +1,5 @@
 import sys
 import os
-import sysconfig
 import hashlib
 import json
 from pathlib import Path
@@ -11,6 +10,7 @@ from .environment import (
     LINUX,
     MACOS,
     short_envname,
+    get_scripts_dir,
 )
 from .windows import (
     get_start_menu,
@@ -82,12 +82,14 @@ class _ModuleConfig:
 
     def _get_launcher_script_path(self):
         """Get the path to the script for launching the app without a console. It is
-        assumed to be called <module_name>-gui and be in the bin or Scripts directory of
-        the current Python interpreter as returned by `sysconfig.get_path('scripts')`.
-        As such it will not be correct when used with `pip install --user` or any other
-        custom options to pip that modify the install prefix."""
+        assumed to be called <module_name>-gui and be in the bin or Scripts directory
+        corresponding to the installation location of the module. If the module is not
+        installed, returns None."""
         # Look up the path to the launcher:
-        script_path = Path(sysconfig.get_path('scripts'), self.module_name).absolute()
+        scripts_dir = get_scripts_dir(self.module_name)
+        if scripts_dir is None:
+            return None
+        script_path = scripts_dir / self.module_name
         if WINDOWS:
             return Path(script_path.parent, script_path.name + '-gui')
         return script_path
@@ -146,9 +148,13 @@ def set_process_appid(module_name):
     """Associate the currently running process with the shortcut for the given module
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
+
+    # If the launcher script path is None, that means the package isn't installed
+    # into (user-)site-packages, so the script doesn't exist. Don't set sys.argv[0].
     config = _ModuleConfig.instance(module_name)
     if WINDOWS:
-        sys.argv[0] = str(config.launcher_script_path)
+        if config.launcher_script_path is not None:
+            sys.argv[0] = str(config.launcher_script_path)
         set_process_appusermodel_id(config.appid)
     else:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
@@ -158,11 +164,12 @@ def set_process_appid(module_name):
         # If not, the user will need to make the right function call depending on their
         # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user needs to
         # set the tk classname to sys.argv[0] themselves.
-        symlink_path = _launcher_script_symlink_path(config)
-        if symlink_path is not None:
-            sys.argv[0] = str(symlink_path)
-        else:
-            sys.argv[0] = str(config.launcher_script_path)
+        if config.launcher_script_path is not None:
+            symlink_path = _launcher_script_symlink_path(config)
+            if symlink_path is not None:
+                sys.argv[0] = str(symlink_path)
+            else:
+                sys.argv[0] = str(config.launcher_script_path)
     # TODO: consider macos
 
 
@@ -189,7 +196,8 @@ def _shortcut_name(config):
 
 def _launcher_script_symlink_path(config):
     if not WINDOWS and config.appid != config.module_name:
-        return config.launcher_script_path.parent / config.appid
+        if config.launcher_script_path is not None:
+            return config.launcher_script_path.parent / config.appid
 
 
 def install(module_name, path=None, verbose=False):
@@ -200,6 +208,13 @@ def install(module_name, path=None, verbose=False):
     conda or virtual environment) matches the name of the executable it points to, a
     symbolic link called `<module_name>-<envname>` will be created."""
     config = _ModuleConfig.instance(module_name)
+    if config.launcher_script_path is None:
+        msg = f"""The package providing the module {module_name} is not installed to the
+            current Python environment, so its entry_points scripts do not exist, and
+            desktop-app cannot create shortcuts to them. Install the package to the
+            Python environment before continuing. If you are in a development setup you
+            may make an editable install with `pip install -e`."""
+        raise EnvironmentError(' '.join(msg.split()))
     if path is not None:
         path = Path(path)
     else:
