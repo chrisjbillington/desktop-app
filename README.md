@@ -63,7 +63,7 @@ After installing this package somewhere, MacDonald can run it from a terminal wi
 `python -m oink`, and it shows a little window
 
 
-screenshot of window?
+[README still in progress!]
 
 
 Reasons
@@ -97,19 +97,3 @@ programs that might be installed to the `bin`/`Scripts` directory of the virtual
 environment - calling code would otherwise have to manually find this directory and
 provide the full path to the programs it wants to run.
 
-
-Limitations
-===========
-
-`desktop-app` is compatible with packages installed system-wide and within virtual
-environments. However, it is not compatible with packages installed either with `pip
-install --user`, or with a modified `--prefix` such as how Debian-based distributions
-install packages to `/usr/local/` when `pip` is run with `sudo`.
-
-This is because `desktop-app` can't find the `entry_points` scripts in these cases in
-order to point start menu shortcuts and .desktop files at them. It just looks in
-`sysconfig.get_path('scripts')`, and turns out that looking in all other possible places
-is non-trivial. Obviously it's possible since `pip uninstall` manages to remove these
-files (evidence that it can find them!), but I haven't figured it out yet and it's not
-really worth it when `sudo pip install` and `pip install --user` are usually bad ideas
-anyway.
