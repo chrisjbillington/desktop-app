@@ -1,6 +1,8 @@
+import site
 from pathlib import Path
-from subprocess import list2cmdline
+from subprocess import list2cmdline, call, Popen, PIPE, DEVNULL
 from .environment import WINDOWS
+
 
 if WINDOWS:
     # Allow importing this module on other platforms even though the functions will fail
@@ -20,6 +22,39 @@ def get_start_menu():
     """Return the path for Start menu entries for user-installed programs"""
     _checkwindows()
     return Path(Dispatch('WScript.Shell').SpecialFolders("Programs"))
+
+
+def unredirect_appdata(path):
+    """Copy a file within the appdata directory, that is actually in a local private
+    copy of said directory, into the regular, shared-by-all-apps appdata directory.
+    Delete the original file (but not necessarily parent directories). This is necessary
+    if running on Python from the Windows Store, since Python.exe sees a private copy of
+    appdata."""
+    # The way this hack works is that we look site site.USER_BASE. This is the only clue
+    # we have that our appdata is being redirected, since if it is, site.USER_BASE will
+    # be in the redirected location. So that's how we get our hands on the path (this
+    # ultimately came into the Python interpreter via an environment variable). Then we
+    # launch non-python subprocesses to do the file copying for us, since the
+    # subprocesses aren't subject to the redirect.
+    real_path = Path(path)
+    real_appdata = Path(Dispatch('WScript.Shell').SpecialFolders("AppData"))
+    sandbox_appdata = Path(site.USER_BASE).parent / real_appdata.name
+    sandbox_path = sandbox_appdata / real_path.relative_to(real_appdata)
+    if sandbox_path.exists():
+        # Yep, the file was redirected to the private copy of appdata:
+        call(
+            ['cmd.exe', '/c', 'mkdir', str(real_path.parent)],
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+        )
+        proc = Popen(
+            ['xcopy', str(sandbox_path), str(real_path), '/Y'],
+            stdin=PIPE,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+        )
+        proc.communicate(b'F')  # This is so dumb
+        sandbox_path.unlink()
 
 
 def create_shortcut(
@@ -60,6 +95,8 @@ def create_shortcut(
         )
         store.Commit()
 
+
+def refresh_shell_cache():
     # Refresh the icon cache:
     shell.SHChangeNotify(
         shellcon.SHCNE_ASSOCCHANGED,
@@ -67,6 +104,7 @@ def create_shortcut(
         None,
         None,
     )
+
 
 def set_process_appusermodel_id(appid):
     _checkwindows()

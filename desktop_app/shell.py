@@ -16,6 +16,8 @@ from .windows import (
     get_start_menu,
     create_shortcut,
     set_process_appusermodel_id,
+    unredirect_appdata,
+    refresh_shell_cache,
 )
 
 from .linux import get_user_applications, create_desktop_file
@@ -234,6 +236,14 @@ def install(module_name, path=None, verbose=False):
             display_name=config.display_name,
             appusermodel_id=config.appid,
         )
+        # If the shortcut is in appdata, and if it's a private copy of appdata such that
+        # it will not be used to populate the start menu, move it to real appdata where
+        # it will be used to populate the start menu. Hopefully in time Windows changes
+        # to consider the start menus within these private directories as places that it
+        # populates the start menu from. If not, hopefully this workaround continues to
+        # function.
+        unredirect_appdata(shortcut_path)
+        refresh_shell_cache()
         if verbose:
             print(f' -> created {shortcut_path}')
     elif LINUX:
@@ -283,3 +293,5 @@ def uninstall(module_name, path=None, verbose=False):
         except FileNotFoundError:
             if verbose:
                 print(f'warning: no such file {file}', file=sys.stderr)
+    if WINDOWS:
+        refresh_shell_cache()
