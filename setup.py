@@ -1,5 +1,6 @@
 import os
-from setuptools import setup
+from setuptools import setup, Extension
+import platform
 
 try:
     from setuptools_conda import dist_conda
@@ -11,6 +12,12 @@ INSTALL_REQUIRES = [
     "pywin32;               sys_platform == 'win32'",
     "importlib_metadata;    python_version < '3.8'",
 ]
+
+wineventhook = Extension(
+    'desktop_app.wineventhook',
+    sources=[os.path.join('src', 'wineventhook.cpp')],
+    libraries=["user32", "shell32", "ole32"],
+)
 
 setup(
     name='desktop-app',
@@ -26,6 +33,7 @@ setup(
     url='http://github.com/chrisjbillington/desktop-app',
     license="BSD",
     packages=["desktop_app"],
+    ext_modules=[wineventhook] if platform.system() == 'Windows' else [],
     zip_safe=False,
     setup_requires=['setuptools', 'setuptools_scm'],
     include_package_data=True,

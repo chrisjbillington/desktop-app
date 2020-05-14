@@ -7,6 +7,7 @@ if WINDOWS:
     from win32com.shell import shell, shellcon
     from win32com.client import Dispatch
     from win32com.propsys import propsys, pscon
+    from .wineventhook import sethook
 
 
 def _checkwindows():
@@ -69,4 +70,7 @@ def create_shortcut(
 
 def set_process_appusermodel_id(appid):
     _checkwindows()
-    shell.SetCurrentProcessExplicitAppUserModelID(appid)
+    # shell.SetCurrentProcessExplicitAppUserModelID(appid)
+    if not isinstance(appid, str) or len(appid) >= 1024:
+        raise TypeError('appid must be a str of len < 1024')
+    sethook(appid)
