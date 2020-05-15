@@ -1,3 +1,4 @@
+#define Py_LIMITED_API
 #include <Python.h>
 #include <Windows.h>
 #include <propsys.h>
