@@ -2,7 +2,7 @@ import sys
 import os
 import site
 import sysconfig
-import importlib.util
+from importlib.machinery import PathFinder
 import platform
 from functools import lru_cache
 from pathlib import Path
@@ -62,7 +62,7 @@ def _get_install_directory(module_name):
     USER_SITE_PACKAGES."""
     import_path = get_package_directory(module_name).parent
     for canonical_install_path in SITE_PACKAGES + [USER_SITE_PACKAGES]:
-        if import_path == canonical_install_path:
+        if canonical_install_path in import_path.parents:
             return canonical_install_path
     # May return None if there is no egg-link to the package directory either
     return _reverse_egg_link_lookup(import_path)
@@ -84,7 +84,11 @@ def get_scripts_dir(module_name):
 def get_package_directory(module_name):
     """Return Path of the package directory that the given module is in."""
     base_module = module_name.split('.', 1)[0]
-    spec = importlib.util.find_spec(base_module)
+    # Find the import path of the package, excluding the `''` entry in `sys.path` so as
+    # to avoid the false positive of returning the CWD if the user is in the development
+    # directory (which may also be in the path for the case of an editable install,
+    # which is why we skip `''` specifically, and not anything that expands to CWD).
+    spec = PathFinder.find_spec(base_module, path=[p for p in sys.path if p])
     if spec is None or spec.origin is None:
         raise ModuleNotFoundError(base_module)
     if not spec.parent:
