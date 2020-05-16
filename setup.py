@@ -24,7 +24,7 @@ wineventhook = Extension(
 
 setup(
     name='desktop-app',
-    use_scm_version=True,
+    use_scm_version={'local_scheme': 'no-local-version'},
     description=(
         "OS menu shortcuts, correct taskbar behaviour, and environment "
         + "activation for Python GUI apps"
@@ -36,7 +36,7 @@ setup(
     url='http://github.com/chrisjbillington/desktop-app',
     license="BSD",
     packages=["desktop_app"],
-    ext_modules=[wineventhook],
+    ext_modules=[wineventhook] if WINDOWS else [],
     zip_safe=False,
     setup_requires=['setuptools', 'setuptools_scm'],
     include_package_data=True,
