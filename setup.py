@@ -29,7 +29,7 @@ setup(
         "OS menu shortcuts, correct taskbar behaviour, and environment "
         + "activation for Python GUI apps"
     ),
-    long_description=open('README.md').read(),
+    long_description=open('README.md', encoding='utf8').read(),
     long_description_content_type='text/markdown',
     author='Chris Billington',
     author_email='chrisjbillington@gmail.com ',
