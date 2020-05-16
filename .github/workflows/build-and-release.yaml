@@ -40,8 +40,8 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: dists
-        path: ./dists
+        name: dist
+        path: ./dist
 
   build_pure:
     name: Build sdist and pure wheel
@@ -67,11 +67,12 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: dists
-        path: ./dists
+        name: dist
+        path: ./dist
 
   upload:
     name: Upload to PyPI or TestPyPI
+    runs-on: ubuntu-latest
     needs: [build_impure, build_pure]
     steps:
       - name: Upload to TestPyPI
