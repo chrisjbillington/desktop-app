@@ -14,17 +14,17 @@ INSTALL_REQUIRES = [
     "importlib_metadata;    python_version < '3.8'",
 ]
 
-# Extension still defined on non-windows, but with no souces. This ensures setuptools
-# picks up that wheel builds are impure.
 wineventhook = Extension(
     'desktop_app.wineventhook',
-    sources=[os.path.join('src', 'wineventhook.cpp')] if WINDOWS else [],
-    libraries=["user32", "shell32", "ole32"] if WINDOWS else [],
+    sources=[os.path.join('src', 'wineventhook.cpp')],
+    libraries=["user32", "shell32", "ole32"],
 )
 
 setup(
     name='desktop-app',
-    use_scm_version=True,
+    use_scm_version=(
+        {'local_scheme': 'no-local-version'} if os.getenv('GITHUB_ACTIONS') else True
+    ),
     description=(
         "OS menu shortcuts, correct taskbar behaviour, and environment "
         + "activation for Python GUI apps"
@@ -36,7 +36,7 @@ setup(
     url='http://github.com/chrisjbillington/desktop-app',
     license="BSD",
     packages=["desktop_app"],
-    ext_modules=[wineventhook],
+    ext_modules=[wineventhook] if WINDOWS else [],
     zip_safe=False,
     setup_requires=['setuptools', 'setuptools_scm'],
     include_package_data=True,

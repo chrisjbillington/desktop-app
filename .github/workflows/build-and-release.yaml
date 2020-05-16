@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+  create:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  build_impure:
+    name: Build windows wheels
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python: ['3.6', '3.7', '3.8']
+        architecture: ['x64', 'x86']
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Unshallow
+      run: |
+        git fetch --prune --unshallow
+        git describe --tags
+        git log -1
+
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python }}
+        architecture: ${{ matrix.architecture }}
+
+    - name: Build wheel
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python setup.py bdist_wheel
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: dists
+        path: ./dists
+
+  build_pure:
+    name: Build sdist and pure wheel
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Unshallow
+      run: |
+        git fetch --prune --unshallow
+        git describe --tags
+        git log -1
+
+    - name: Install Python
+      uses: actions/setup-python@v2
+
+    - name: Build pure wheel and sdist
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python setup.py sdist bdist_wheel
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: dists
+        path: ./dists
+
+  upload:
+    name: Upload to PyPI or TestPyPI
+    needs: [build_impure, build_pure]
+    steps:
+      - name: Upload to TestPyPI
+        if: github.event.ref_type == 'push'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.testpypi }}
+          repository_url: https://test.pypi.org/legacy/
