@@ -20,7 +20,6 @@ wineventhook = Extension(
     'desktop_app.wineventhook',
     sources=[os.path.join('src', 'wineventhook.cpp')] if WINDOWS else [],
     libraries=["user32", "shell32", "ole32"] if WINDOWS else [],
-    py_limited_api=True,
 )
 
 setup(
