@@ -34,7 +34,7 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: wheels
+        name: dists
         path: ./dist
 
   build_pure:
@@ -53,17 +53,13 @@ jobs:
 
     - name: Install Python
       uses: actions/setup-python@v2
-      # with:
-      #   python-version: '3.x'
 
-    - name: Build pure wheel
-      env:
-          BUILD_PURE_WHEEL: 1
+    - name: Build pure wheel and sdist
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        python setup.py bdist_wheel
+        python setup.py sdist bdist_wheel
 
     - uses: actions/upload-artifact@v1
       with:
-        name: wheels
+        name: dists
         path: ./dist
