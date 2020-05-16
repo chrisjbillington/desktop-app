@@ -8,24 +8,26 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
+
 jobs:
-  build_impure:
-    name: Build windows wheels
-    runs-on: windows-latest
+  build_and_release:
+    name: Build wheels and sdist and upload to PyPI/TestPyPI
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [windows-latest]
         python: ['3.6', '3.7', '3.8']
         architecture: ['x64', 'x86']
+        include:
+        - os: ubuntu-latest
+          python: '3.x'
+          architecture: 'x64'
 
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-
-    - name: Unshallow
-      run: |
-        git fetch --prune --unshallow
-        git describe --tags
-        git log -1
+      with:
+        fetch-depth: 0
 
     - name: Install Python
       uses: actions/setup-python@v2
@@ -33,66 +35,34 @@ jobs:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.architecture }}
 
-    - name: Build wheel
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python setup.py bdist_wheel
+    - name: Install build tools
+      run: python -m pip install --upgrade pip setuptools wheel setuptools_scm
 
-    - uses: actions/upload-artifact@v1
-      with:
-        name: dist
-        path: ./dist
-
-  build_pure:
-    name: Build sdist and pure wheel
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Unshallow
-      run: |
-        git fetch --prune --unshallow
-        git describe --tags
-        git log -1
-
-    - name: Install Python
-      uses: actions/setup-python@v2
+    - name: Build impure wheel
+      if: ${{ matrix.os }} == 'windows-latest'
+      run: python setup.py bdist_wheel
 
     - name: Build pure wheel and sdist
+      if: ${{ matrix.os }} == 'ubuntu-latest'
+      run: python setup.py sdist bdist_wheel
+
+    - name: Save version
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python setup.py sdist bdist_wheel
+        SCM_VERSION=$(python setup.py --version)
+        echo $SCM_VERSION
+        echo "::set-env name=SCM_VERSION::$SCM_VERSION"
 
-    - uses: actions/upload-artifact@v1
+    - name: Upload to TestPyPI
+      if: github.event.ref_type == 'tag' || contains(env.SCM_VERSION, 'dev')
+      uses: pypa/gh-action-pypi-publish@master
       with:
-        name: dist
-        path: ./dist
+        user: __token__
+        password: ${{ secrets.testpypi }}
+        repository_url: https://test.pypi.org/legacy/
 
-  upload:
-    name: Upload to PyPI/TestPyPI
-    runs-on: ubuntu-latest
-    needs: [build_impure, build_pure]
-
-    steps:
-      - name: Get dists
-        uses: actions/download-artifact@v2
-        with:
-          name: dist
-          path: ./dist
-
-      - name: Upload to TestPyPI
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          user: __token__
-          password: ${{ secrets.testpypi }}
-          repository_url: https://test.pypi.org/legacy/
-
-      - name: Upload to PyPI
-        if: github.event.ref_type == 'tag'
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          user: __token__
-          password: ${{ secrets.testpypi }}
-
+    - name: Upload to PyPI
+      if: github.event.ref_type == 'tag'
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.testpypi }}
