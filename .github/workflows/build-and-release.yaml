@@ -49,7 +49,6 @@ jobs:
     - name: Save version
       run: |
         SCM_VERSION=$(python setup.py --version)
-        echo $SCM_VERSION
         echo "::set-env name=SCM_VERSION::$SCM_VERSION"
 
     - name: Upload to TestPyPI
