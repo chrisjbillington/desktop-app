@@ -3,8 +3,8 @@ name: Build
 on: [push]
 
 jobs:
-  build_wheels:
-    name: Build impure wheels
+  build_impure:
+    name: Build windows wheels
     runs-on: windows-latest
     strategy:
       matrix:
@@ -28,6 +28,37 @@ jobs:
         architecture: ${{ matrix.architecture }}
 
     - name: Build wheel
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python setup.py bdist_wheel
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: wheels
+        path: ./dist
+
+  build_pure:
+    name: Build sdist and pure wheel
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Unshallow
+      run: |
+        git fetch --prune --unshallow
+        git describe --tags
+        git log -1
+
+    - name: Install Python
+      uses: actions/setup-python@v2
+      # with:
+      #   python-version: '3.x'
+
+    - name: Build pure wheel
+      env:
+          BUILD_PURE_WHEEL: 1
       run: |
         python -m pip install --upgrade pip setuptools wheel
         python setup.py bdist_wheel
