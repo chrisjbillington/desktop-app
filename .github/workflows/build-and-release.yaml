@@ -14,12 +14,12 @@ defaults:
 
 jobs:
   build:
-    name: Build wheels and sdist and upload to PyPI/TestPyPI
+    name: Build wheels and sdist
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest]
-        python: ['3.6', '3.7', '3.8']
+        python: ['3.8', '3.7', '3.6']
         architecture: ['x64', 'x86']
         include:
         - os: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
 
     - run: python setup.py bdist_wheel
 
-    - if: matrix.os == 'ubuntu-latest'
+    - if: strategy.job-index == 0
       run: python setup.py sdist
     
     - uses: actions/upload-artifact@v1
