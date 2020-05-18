@@ -26,6 +26,9 @@ jobs:
           python: '3.x'
           architecture: 'x64'
 
+    env:
+      SCM_LOCAL_SCHEME: no-local-version
+
     steps:
     - uses: actions/checkout@v2
     - if: github.event.ref_type != 'tag'
