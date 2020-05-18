@@ -5,3 +5,5 @@ dist
 build
 *.pyd
 *.so
+conda_build
+conda_packages
