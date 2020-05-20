@@ -6,6 +6,10 @@ from importlib.machinery import PathFinder
 import platform
 from functools import lru_cache
 from pathlib import Path
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:
+    import importlib_metadata
 
 _os = platform.system()
 WINDOWS = _os == 'Windows'
@@ -95,6 +99,17 @@ def get_package_directory(module_name):
         msg = f'{base_module} is not a package'
         raise ValueError(msg)
     return Path(spec.origin).parent
+
+
+def get_distribution_of_module(module_name):
+    """Return the name of the distribution providing the given module"""
+    base_module = module_name.split('.', 1)[0]
+    for distribution in importlib_metadata.distributions():
+        if distribution.files is None:
+            continue
+        for path in distribution.files:
+            if Path(path).parts[0] == base_module:
+                return distribution.metadata['Name']
 
 
 @lru_cache()

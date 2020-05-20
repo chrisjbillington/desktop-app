@@ -11,6 +11,8 @@ from .environment import (
     MACOS,
     short_envname,
     get_scripts_dir,
+    get_distribution_of_module,
+    detect_conda_env,
 )
 from .windows import (
     get_start_menu,
@@ -19,7 +21,7 @@ from .windows import (
     unredirect_appdata,
     refresh_shell_cache,
 )
-
+from .fix_entry_points import fix_entry_points
 from .linux import get_user_applications, create_desktop_file
 
 
@@ -246,6 +248,13 @@ def install(module_name, path=None, verbose=False):
         refresh_shell_cache()
         if verbose:
             print(f' -> created {shortcut_path}')
+        conda_env, _ = detect_conda_env()
+        if conda_env is not None:
+            # Re-create entry points for the package, to work around the fact that conda
+            # does not support gui_scripts, so those entry_points may have been
+            # installed as console_scripts:
+            dist = get_distribution_of_module(module_name)
+            fix_entry_points(dist)
     elif LINUX:
         symlink_path = _launcher_script_symlink_path(config)
         create_desktop_file(
