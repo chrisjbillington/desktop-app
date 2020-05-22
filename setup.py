@@ -7,14 +7,13 @@ VERSION_SCHEME = {
     "local_scheme": os.getenv("SCM_LOCAL_SCHEME", "node-and-date"),
 }
 
+# The extension still exists on unix, it's just an empty module. This ensures wheel
+# knows it is an impure package.
 WINDOWS = platform.system() == 'Windows'
-
-# The extension is still defined, but has no sources on Unix. This ensures wheel knows
-# it is an impure package.
 EXT_MODULES = [
     Extension(
         'desktop_app.wineventhook',
-        sources=[os.path.join('src', 'wineventhook.cpp')] if WINDOWS else [],
+        sources=[os.path.join('src', 'wineventhook.cpp')],
         libraries=["user32", "shell32", "ole32"] if WINDOWS else [],
     )
 ]

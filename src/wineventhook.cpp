@@ -1,4 +1,5 @@
 #include <Python.h>
+#ifdef _WIN32
 #include <Windows.h>
 #include <propsys.h>
 #include <propkey.h>
@@ -70,10 +71,12 @@ sethook(PyObject *self, PyObject *args){
     );
     Py_RETURN_NONE;
 }
-
+#endif
 
 static PyMethodDef wineventhook_methods[] = {
+#ifdef _WIN32
     {"sethook",sethook, METH_VARARGS, "Enable a hook to set window AppUserModelIDs"},
+#endif
     {NULL, NULL, 0, NULL}
 };
 
