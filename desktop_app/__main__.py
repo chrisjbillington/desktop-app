@@ -33,15 +33,15 @@ def main():
         action="store_true",
         help="""Don't print the names of files created/deleted.""",
     )
-    parser.add_argument(
-        action="store", dest="module",
-    )
+    parser.add_argument(action="store", dest="module", nargs='+')
 
     args = parser.parse_args()
     if args.action == 'install':
-        install(args.module, path=args.path, verbose=not args.quiet)
+        for module in args.module:
+            install(module, path=args.path, verbose=not args.quiet)
     if args.action == 'uninstall':
-        uninstall(args.module, path=args.path, verbose=not args.quiet)
+        for module in args.module:
+            uninstall(module, path=args.path, verbose=not args.quiet)
 
 
 if __name__ == '__main__':
