@@ -153,12 +153,9 @@ def set_process_appid(module_name):
     name. This should ensure the app has the correct icon in the taskbar, groups its
     windows correctly, can be pinned etc."""
 
-    # If the launcher script path is None, that means the package isn't installed
-    # into (user-)site-packages, so the script doesn't exist. Don't set sys.argv[0].
     config = _ModuleConfig.instance(module_name)
+    launcher = config.launcher_script_path
     if WINDOWS:
-        if config.launcher_script_path is not None:
-            sys.argv[0] = str(config.launcher_script_path)
         set_process_appusermodel_id(config.appid)
     else:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
@@ -168,9 +165,14 @@ def set_process_appid(module_name):
         # If not, the user will need to make the right function call depending on their
         # GUI toolkit. Notable exception: tk doesn't use sys.argv[0] - the user needs to
         # set the tk classname to sys.argv[0] themselves.
-        if config.launcher_script_path is not None:
+        launcher = config.launcher_script_path
+        # If the launcher script path is None, that means the package isn't installed
+        # into (user-)site-packages, so the script doesn't exist. Don't set sys.argv[0].
+        # We don't want to set ays.argv to something that could not actually be run
+        # again.
+        if launcher is not None and launcher.exists():
             symlink_path = _launcher_script_symlink_path(config)
-            if symlink_path is not None:
+            if symlink_path is not None and symlink_path.exists():
                 sys.argv[0] = str(symlink_path)
             else:
                 sys.argv[0] = str(config.launcher_script_path)
