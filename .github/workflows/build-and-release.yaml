@@ -116,7 +116,7 @@ jobs:
           source .miniconda/etc/profile.d/conda.sh
           conda activate
           conda create -n py${{ matrix.python }} python=${{ matrix.python }}
-        
+
       - name: Build Conda Package
         run: |
           source .miniconda/etc/profile.d/conda.sh
