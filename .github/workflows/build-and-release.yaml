@@ -1,9 +1,10 @@
-name: Build
+name: Build and Release
 
 on:
   push:
     branches:
       - master
+      - maintenance/*
   create:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
@@ -13,218 +14,252 @@ defaults:
     shell: bash
 
 env:
+  PACKAGE_NAME: desktop-app
+  SCM_VERSION_SCHEME: release-branch-semver
   SCM_LOCAL_SCHEME: no-local-version
+  ANACONDA_USER: cbillington
 
-      
+  # Configuration for a package with compiled extensions:
+  PURE: false
+  NOARCH: false
+
+  # Configuration for a package with no extensions, but with dependencies that differ by
+  # platform or Python version:
+  # PURE: true
+  # NOARCH: false
+
+  # Configuration for a package with no extensions and the same dependencies on all
+  # platforms and Python versions. For this configuration you should comment out all but
+  # the first entry in the job matrix of the build job since multiple platforms are not
+  # needed.
+  # PURE: true
+  # NOARCH: true
+
 jobs:
-
-
-  sdist:
-    name: sdist
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - if: github.event.ref_type != 'tag'
-        run: |
-          git fetch --prune --unshallow
-          git tag -d $(git tag --points-at HEAD)
-
-      - uses: actions/setup-python@v2
-
-      - run: |
-          python -m pip install --upgrade pip setuptools wheel setuptools_scm
-          python setup.py sdist
-    
-      - uses: actions/upload-artifact@v1
-        with:
-          name: dist
-          path: ./dist
-
-
-  wheel:
-    name: wheel
+  build:
+    name: Build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - { os: macos-latest,    python: 3.6,  arch: x64 }
-          - { os: macos-latest,    python: 3.7,  arch: x64 }
-          - { os: macos-latest,    python: 3.8,  arch: x64 }
+          - { os: ubuntu-latest,   python: 3.8,  arch: x64, conda_fromwheel: false }
+          - { os: ubuntu-latest,   python: 3.7,  arch: x64, conda_fromwheel: false }
+          - { os: ubuntu-latest,   python: 3.6,  arch: x64, conda_fromwheel: false }
 
-          - { os: windows-latest,  python: 3.6,  arch: x64 }
-          - { os: windows-latest,  python: 3.7,  arch: x64 }
-          - { os: windows-latest,  python: 3.8,  arch: x64 }
+          - { os: macos-latest,    python: 3.8,  arch: x64, conda_fromwheel: false }
+          - { os: macos-latest,    python: 3.7,  arch: x64, conda_fromwheel: false }
+          - { os: macos-latest,    python: 3.6,  arch: x64, conda_fromwheel: false }
 
-          - { os: windows-latest,  python: 3.6,  arch: x86 }
-          - { os: windows-latest,  python: 3.7,  arch: x86 }
-          - { os: windows-latest,  python: 3.8,  arch: x86 }
+          - { os: windows-latest,  python: 3.8,  arch: x64, conda_fromwheel: true  }
+          - { os: windows-latest,  python: 3.7,  arch: x64, conda_fromwheel: true  }
+          - { os: windows-latest,  python: 3.6,  arch: x64, conda_fromwheel: true  }
 
+          - { os: windows-latest,  python: 3.8,  arch: x86, conda_fromwheel: true  }
+          - { os: windows-latest,  python: 3.7,  arch: x86, conda_fromwheel: true  }
+          - { os: windows-latest,  python: 3.6,  arch: x86, conda_fromwheel: true  }
+
+    if: github.repository == 'chrisjbillington/desktop-app' && (github.event_name != 'create' || github.event.ref_type != 'branch')
     steps:
-      - uses: actions/checkout@v2
-      - if: github.event.ref_type != 'tag'
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        if: github.event.ref_type != 'tag'
         run: |
           git fetch --prune --unshallow
           git tag -d $(git tag --points-at HEAD)
 
-      - uses: actions/setup-python@v2
+      - name: Install Python
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
           architecture: ${{ matrix.arch }}
 
-      - run: |
-          python -m pip install --upgrade pip setuptools wheel setuptools_scm
-          python setup.py bdist_wheel
+      - name: Install Build Tools
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -U git+https://github.com/pypa/setuptools_scm.git@8e6aa2b5
 
-      - uses: actions/upload-artifact@v1
+      - name: Source Distribution
+        if: strategy.job-index == 0
+        run: python setup.py sdist
+
+      - name: Wheel Distribution
+        # Impure Linux wheels are built in the manylinux job.
+        if: (env.PURE == 'true' && strategy.job-index == 0) || (env.PURE == 'false' && runner.os != 'Linux')
+        run: python setup.py bdist_wheel
+
+      - name: Upload Artifact
+        if: strategy.job-index == 0 || (env.PURE == 'false' && runner.os != 'Linux')
+        uses: actions/upload-artifact@v2
         with:
           name: dist
           path: ./dist
 
+      - name: Install Conda
+        run: |
+          if [ $RUNNER_OS == Windows ] && [ ${{ matrix.arch }} == x64 ]; then
+              MINICONDA=Miniconda3-latest-Windows-x86_64.exe
+          elif [ $RUNNER_OS == Windows ]; then
+              MINICONDA=Miniconda3-latest-Windows-x86.exe
+          elif [ $RUNNER_OS == Linux ]; then
+              MINICONDA=Miniconda3-latest-Linux-x86_64.sh
+          else
+              MINICONDA=Miniconda3-latest-MacOSX-x86_64.sh
+          fi
+          curl -LO "https://repo.continuum.io/miniconda/$MINICONDA" 
+          if [ $RUNNER_OS == Windows ]; then
+              cmd //C "$MINICONDA /S /D=%CD%\.miniconda"
+          else
+              bash "$MINICONDA" -b -p .miniconda
+          fi
+          source .miniconda/etc/profile.d/conda.sh
+          conda activate
+          conda create -n py${{ matrix.python }} python=${{ matrix.python }}
+        
+      - name: Build Conda Package
+        run: |
+          source .miniconda/etc/profile.d/conda.sh
+          conda activate py${{ matrix.python }}
+          conda install -c cbillington setuptools_conda
+          pip install -U git+https://github.com/pypa/setuptools_scm.git@8e6aa2b5
+          if [ $NOARCH == true ]; then
+              python setup.py dist_conda --noarch
+          elif [ ${{ matrix.conda_from_wheel }} == true ]; then
+              python setup.py dist_conda --from-wheel
+          else
+              python setup.py dist_conda --pythons ${{ matrix.python }}
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: conda_packages
+          path: ./conda_packages
+
 
   manylinux:
-    name: manylinux wheels
+    name: Build Manylinux
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - { python: 'cp36-cp36m cp37-cp37m cp38-cp38' }
 
+    if: github.repository == 'chrisjbillington/desktop-app' && (github.event_name != 'create' || github.event.ref_type != 'branch')
     steps:
-      - uses: actions/checkout@v2
-      - if: github.event.ref_type != 'tag'
+      - name: Checkout
+        if: env.PURE == 'false'
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        if: github.event.ref_type != 'tag' && env.PURE == 'false'
         run: |
           git fetch --prune --unshallow
           git tag -d $(git tag --points-at HEAD)
 
-      - uses: RalfG/python-wheels-manylinux-build@v0.2.2-manylinux2010_x86_64
+      - name: Build Manylinux Wheels
+        if: env.PURE == 'false'
+        uses: RalfG/python-wheels-manylinux-build@v0.2.2-manylinux2010_x86_64
         with:
           python-versions: ${{ matrix.python }}
-          build-requirements: setuptools_scm
+          build-requirements: git+https://github.com/pypa/setuptools_scm.git@8e6aa2b5
 
-      - run: mkdir -p dist && cp wheelhouse/*manylinux*.whl dist
+      - name: Upload Artifact
+        if: env.PURE == 'false'
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist
+          path: wheelhouse/*manylinux*.whl
 
-      - uses: actions/upload-artifact@v1
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [build, manylinux]
+    steps:
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
         with:
           name: dist
           path: ./dist
 
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: conda_packages
+          path: ./conda_packages
 
-  conda:
-    name: conda packages
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - { os: ubuntu-latest,   python: 3.6,  miniconda: Miniconda3-latest-Linux-x86_64.sh,     from_wheel: false }
-          - { os: ubuntu-latest,   python: 3.7,  miniconda: Miniconda3-latest-Linux-x86_64.sh,     from_wheel: false }
-          - { os: ubuntu-latest,   python: 3.8,  miniconda: Miniconda3-latest-Linux-x86_64.sh,     from_wheel: false }
+      - name: Publish on TestPyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.testpypi }}
+          repository_url: https://test.pypi.org/legacy/
 
-          - { os: macos-latest,    python: 3.6,  miniconda: Miniconda3-latest-MacOSX-x86_64.sh,    from_wheel: false }
-          - { os: macos-latest,    python: 3.7,  miniconda: Miniconda3-latest-MacOSX-x86_64.sh,    from_wheel: false }
-          - { os: macos-latest,    python: 3.8,  miniconda: Miniconda3-latest-MacOSX-x86_64.sh,    from_wheel: false }
+      - name: Get Version Number
+        if: github.event.ref_type == 'tag'
+        run: |
+          VERSION="${GITHUB_REF/refs\/tags\/v/}"
+          echo "::set-env name=VERSION::$VERSION"
 
-          - { os: windows-latest,  python: 3.6,  miniconda: Miniconda3-latest-Windows-x86_64.exe,  from_wheel: true  }
-          - { os: windows-latest,  python: 3.7,  miniconda: Miniconda3-latest-Windows-x86_64.exe,  from_wheel: true  }
-          - { os: windows-latest,  python: 3.8,  miniconda: Miniconda3-latest-Windows-x86_64.exe,  from_wheel: true  }
+      - name: Create GitHub Release
+        if: github.event.ref_type == 'tag'
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.ref }}
+          release_name: ${{ env.PACKAGE_NAME }} ${{ env.VERSION }}
+          draft: true
+          prerelease: ${{ contains(github.event.ref, 'rc') }}
 
-          - { os: windows-latest,  python: 3.6,  miniconda: Miniconda3-latest-Windows-x86.exe,     from_wheel: true  }
-          - { os: windows-latest,  python: 3.7,  miniconda: Miniconda3-latest-Windows-x86.exe,     from_wheel: true  }
-          - { os: windows-latest,  python: 3.8,  miniconda: Miniconda3-latest-Windows-x86.exe,     from_wheel: true  }
+      - name: Upload Release Asset
+        if: github.event.ref_type == 'tag'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
+          asset_name: ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
+          asset_content_type: application/gzip
 
-    steps:
-    - uses: actions/checkout@v2
-    - if: github.event.ref_type != 'tag'
-      run: |
-        git fetch --prune --unshallow
-        git tag -d $(git tag --points-at HEAD)
+      - name: Publish on PyPI
+        if: github.event.ref_type == 'tag'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.pypi }}
 
-    - name: Setup conda
-      run: |
-        curl -LO "https://repo.continuum.io/miniconda/${{ matrix.miniconda }}" 
-        if [ "$RUNNER_OS" == "Windows" ]; then
-            cmd //C "${{ matrix.miniconda }} /S /D=%CD%\.miniconda"
-        else
-            bash "${{ matrix.miniconda }}" -b -p .miniconda
-        fi
-        source .miniconda/etc/profile.d/conda.sh
-        conda activate
-        conda create -n py${{ matrix.python }} python=${{ matrix.python }}
-        
-    - name: conda build
-      run: |
-        source .miniconda/etc/profile.d/conda.sh
-        conda activate py${{ matrix.python }}
-        conda install -c cbillington setuptools_conda
-        if [ ${{ matrix.from_wheel }} == "true" ]; then
-            python setup.py dist_conda --from-wheel
-        else
-            python setup.py dist_conda --pythons ${{ matrix.python }}
-        fi
+      - name: Install Miniconda and cloud client
+        run: |
+          curl -LO https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh 
+          bash Miniconda3-latest-Linux-x86_64.sh -b -p .miniconda
+          source .miniconda/etc/profile.d/conda.sh
+          conda activate
+          conda install anaconda-client
 
-    - uses: actions/upload-artifact@v1
-      with:
-        name: conda_packages
-        path: ./conda_packages
-
-
-  upload:
-    name: Upload
-    runs-on: ubuntu-latest
-    needs: [sdist, wheel, manylinux, conda]
-
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: dist
-        path: ./dist
-
-    - uses: actions/download-artifact@v2
-      with:
-        name: conda_packages
-        path: ./conda_packages
-
-    - name: TestPyPI
-      uses: pypa/gh-action-pypi-publish@v1.1.0
-      with:
-        user: __token__
-        password: ${{ secrets.testpypi }}
-        repository_url: https://test.pypi.org/legacy/
-
-    - name: PyPI
-      if: github.event.ref_type == 'tag'
-      uses: pypa/gh-action-pypi-publish@v1.1.0
-      with:
-        user: __token__
-        password: ${{ secrets.pypi }}
-
-    - name: Install Miniconda and cloud client
-      run: |
-        MINICONDA=Miniconda3-latest-Linux-x86_64.sh
-        curl -LO "https://repo.continuum.io/miniconda/$MINICONDA" 
-        bash "$MINICONDA" -b -p .miniconda
-        source .miniconda/etc/profile.d/conda.sh
-        conda activate
-        conda install anaconda-client
-
-    - name: Anaconda cloud test label
-      if: github.event.ref_type != 'tag'
-      run: |
-        source .miniconda/etc/profile.d/conda.sh
-        conda activate
-        anaconda \
-          --token ${{ secrets.ANACONDA_API_TOKEN }} \
-          upload \
-          --user labscript-suite \
-          --label test \
-          conda_packages/*/*
-          
-    - name: Anaconda cloud main label
-      if: github.event.ref_type == 'tag'
-      run: |
-        source .miniconda/etc/profile.d/conda.sh
-        conda activate
-        anaconda \
-          --token ${{ secrets.ANACONDA_API_TOKEN }} \
-          upload \
-          --user labscript-suite \
-          conda_packages/*/*
+      - name: Publish to Anaconda test label
+        if: github.event.ref_type != 'tag'
+        run: |
+          source .miniconda/etc/profile.d/conda.sh
+          conda activate
+          anaconda \
+            --token ${{ secrets.ANACONDA_API_TOKEN }} \
+            upload \
+            --user $ANACONDA_USER \
+            --label test \
+            conda_packages/*/*
+              
+      - name: Publish to Anaconda main label
+        if: github.event.ref_type == 'tag'
+        run: |
+          source .miniconda/etc/profile.d/conda.sh
+          conda activate
+          anaconda \
+            --token ${{ secrets.ANACONDA_API_TOKEN }} \
+            upload \
+            --user $ANACONDA_USER \
+            conda_packages/*/*
