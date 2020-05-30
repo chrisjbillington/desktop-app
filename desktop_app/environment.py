@@ -66,7 +66,7 @@ def _reverse_egg_link_lookup(directory):
 def _get_install_directory(module_name):
     """Return the installation directory of the module - an entry in SITE_PACKAGES, or
     USER_SITE_PACKAGES."""
-    import_path = get_package_directory(module_name).parent
+    import_path = get_package_directory(module_name)
     for canonical_install_path in SITE_PACKAGES + [USER_SITE_PACKAGES]:
         if canonical_install_path in import_path.parents:
             return canonical_install_path
