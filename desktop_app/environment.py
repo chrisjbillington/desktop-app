@@ -49,6 +49,8 @@ def _reverse_egg_link_lookup(directory):
     # parent directory of the .egg-link file is returned. Otherwise returns None.
     directory = Path(directory).absolute()
     for sitedir in SITE_PACKAGES + [USER_SITE_PACKAGES]:
+        if not sitedir.is_dir():
+            continue
         sitedir = Path(sitedir).absolute()
         if sitedir.exists and sitedir.is_dir:
             for file in sitedir.iterdir():
