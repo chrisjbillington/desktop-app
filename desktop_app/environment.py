@@ -59,7 +59,7 @@ def _reverse_egg_link_lookup(directory):
                     linkpath = Path(file.read_text().splitlines()[0])
                      # is allowed to be relative to the containing dir:
                     linkpath = Path(sitedir, linkpath)
-                    if linkpath == directory:
+                    if linkpath == directory.parent:
                         return sitedir
 
 
