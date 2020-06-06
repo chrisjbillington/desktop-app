@@ -122,7 +122,7 @@ def detect_conda_env():
     if not (prefix / 'conda-meta').is_dir():
         # Not a conda env
         return None, None
-    if (prefix / 'condabin').is_dir():
+    if (prefix / 'envs').is_dir():
         # It's the base conda env:
         return 'base', prefix
     # Not the base env: its name is the directory basename:
