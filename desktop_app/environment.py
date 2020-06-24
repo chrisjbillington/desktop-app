@@ -67,7 +67,7 @@ def _reverse_egg_link_lookup(directory):
                         return sitedir
 
 
-def _get_install_directory(module_name):
+def get_install_directory(module_name):
     """Return the installation directory of the module - an entry in the list of site
     packages directories, or the user site packages directory."""
     import_path = get_package_directory(module_name)
@@ -81,7 +81,7 @@ def _get_install_directory(module_name):
 def get_scripts_dir(module_name):
     """Return the directory of the scripts installed with the package supplying the
     given module. If the package is not installed, returns None."""
-    install_dir = _get_install_directory(module_name)
+    install_dir = get_install_directory(module_name)
     if install_dir is not None:
         if Path('/usr/local') in install_dir.parents:
             return LOCAL_SCRIPTS
