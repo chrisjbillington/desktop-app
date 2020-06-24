@@ -36,9 +36,13 @@ else:
 # Possible locations for installed packages:
 
 # Arbitrary number of site packages directories:
-SITE_PACKAGES = [Path(s) for s in site.getsitepackages()]
+def _site_packages():
+    return [Path(s) for s in site.getsitepackages()]
+
+
 # Only one user site packages directory:
-USER_SITE_PACKAGES = Path(site.getusersitepackages())
+def _user_site_packages():
+    return Path(site.getusersitepackages())
 
 
 def _reverse_egg_link_lookup(directory):
@@ -48,7 +52,7 @@ def _reverse_egg_link_lookup(directory):
     # .egg-link files, and if any is found that points to the given directory, the
     # parent directory of the .egg-link file is returned. Otherwise returns None.
     directory = Path(directory).absolute()
-    for sitedir in SITE_PACKAGES + [USER_SITE_PACKAGES]:
+    for sitedir in _site_packages() + [_user_site_packages()]:
         if not sitedir.is_dir():
             continue
         sitedir = Path(sitedir).absolute()
@@ -57,19 +61,19 @@ def _reverse_egg_link_lookup(directory):
                 if file.suffix == '.egg-link':
                     # The first line is the path to the .egg:
                     linkpath = Path(file.read_text().splitlines()[0])
-                     # is allowed to be relative to the containing dir:
+                    # is allowed to be relative to the containing dir:
                     linkpath = Path(sitedir, linkpath)
                     if linkpath == directory.parent:
                         return sitedir
 
 
 def _get_install_directory(module_name):
-    """Return the installation directory of the module - an entry in SITE_PACKAGES, or
-    USER_SITE_PACKAGES."""
+    """Return the installation directory of the module - an entry in the list of site
+    packages directories, or the user site packages directory."""
     import_path = get_package_directory(module_name)
-    for canonical_install_path in SITE_PACKAGES + [USER_SITE_PACKAGES]:
-        if canonical_install_path in import_path.parents:
-            return canonical_install_path
+    for sitedir in _site_packages() + [_user_site_packages()]:
+        if sitedir in import_path.parents:
+            return sitedir
     # May return None if there is no egg-link to the package directory either
     return _reverse_egg_link_lookup(import_path)
 
@@ -81,9 +85,9 @@ def get_scripts_dir(module_name):
     if install_dir is not None:
         if Path('/usr/local') in install_dir.parents:
             return LOCAL_SCRIPTS
-        elif install_dir in SITE_PACKAGES:
+        elif install_dir in _site_packages():
             return PY_SCRIPTS
-        elif install_dir == USER_SITE_PACKAGES:
+        elif install_dir == _user_site_packages():
             return USER_SCRIPTS
 
 
