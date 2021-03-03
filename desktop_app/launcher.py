@@ -55,6 +55,8 @@ def entry_point():
     script_path = Path(package_directory, *module_name.split('.')[1:])
     if script_path.is_dir():
         script_path /= '__main__.py'
+    else:
+        script_path = script_path.with_suffix('.py')
 
     popen_kwargs = {}
 
