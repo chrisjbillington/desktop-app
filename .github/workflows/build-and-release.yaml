@@ -42,18 +42,22 @@ jobs:
     strategy:
       matrix:
         include:
+          - { os: ubuntu-latest,   python: 3.9,  arch: x64 }
           - { os: ubuntu-latest,   python: 3.8,  arch: x64 }
           - { os: ubuntu-latest,   python: 3.7,  arch: x64 }
           - { os: ubuntu-latest,   python: 3.6,  arch: x64 }
 
+          - { os: macos-latest,    python: 3.9,  arch: x64 }
           - { os: macos-latest,    python: 3.8,  arch: x64 }
           - { os: macos-latest,    python: 3.7,  arch: x64 }
           - { os: macos-latest,    python: 3.6,  arch: x64 }
 
+          - { os: windows-latest,  python: 3.9,  arch: x64 }
           - { os: windows-latest,  python: 3.8,  arch: x64 }
           - { os: windows-latest,  python: 3.7,  arch: x64 }
           - { os: windows-latest,  python: 3.6,  arch: x64 }
 
+          - { os: windows-latest,  python: 3.9,  arch: x86 }
           - { os: windows-latest,  python: 3.8,  arch: x86 }
           - { os: windows-latest,  python: 3.7,  arch: x86 }
           - { os: windows-latest,  python: 3.6,  arch: x86 }
@@ -146,7 +150,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - { python: 'cp36-cp36m cp37-cp37m cp38-cp38' }
+          - { python: 'cp36-cp36m cp37-cp37m cp38-cp38 cp39-cp39' }
 
     if: github.repository == 'chrisjbillington/desktop-app' && (github.event_name != 'create' || github.event.ref_type != 'branch')
     steps:
