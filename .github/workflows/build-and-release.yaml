@@ -112,6 +112,13 @@ jobs:
           architecture: ${{ matrix.arch }}
           miniconda-version: "latest"
 
+      - name: Workaround conda-build incompatibility with xcode >12
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 11.7
+
+
       - name: Conda package (Unix)
         if: runner.os != 'Windows'
         shell: bash -l {0}
