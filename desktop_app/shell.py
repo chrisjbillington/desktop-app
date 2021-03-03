@@ -86,16 +86,17 @@ class _ModuleConfig:
 
     def _get_launcher_script_path(self):
         """Get the path to the script for launching the app without a console. It is
-        assumed to be called <module_name>-gui and be in the bin or Scripts directory
-        corresponding to the installation location of the module. If the module is not
-        installed, returns None."""
+        assumed to be called <module_name>-gui.exe on Windows and <module-name>
+        otherwise, and to be in the bin or Scripts directory corresponding to the
+        installation location of the module. If the module is not installed, returns
+        None."""
         # Look up the path to the launcher:
         scripts_dir = get_scripts_dir(self.module_name)
         if scripts_dir is None:
             return None
         script_path = scripts_dir / self.module_name
         if WINDOWS:
-            return Path(script_path.parent, script_path.name + '-gui')
+            return Path(script_path.parent, script_path.name + '-gui.exe')
         return script_path
 
     def _get_appid(self):
