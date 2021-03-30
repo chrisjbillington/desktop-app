@@ -27,6 +27,15 @@ def main():
             defaults to the Start menu on Windows, and to ~/.local/share/applications on
             Linux.""",
     )
+
+    parser.add_argument(
+        '--no-fix-entry-points',
+        dest='no_fix_entry_points',
+        default=False,
+        action='store_true',
+        help="If set, entry points will not be fixed for conda-environments "
+        "during the install action."
+    )
     parser.add_argument(
         '-q',
         '--quiet',
@@ -38,7 +47,8 @@ def main():
     args = parser.parse_args()
     if args.action == 'install':
         for module in args.module:
-            install(module, path=args.path, verbose=not args.quiet)
+            install(module, path=args.path, verbose=not args.quiet,
+                    no_fix_entry_points=args.no_fix_entry_points)
     if args.action == 'uninstall':
         for module in args.module:
             uninstall(module, path=args.path, verbose=not args.quiet)

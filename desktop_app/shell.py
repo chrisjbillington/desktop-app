@@ -207,7 +207,7 @@ def _launcher_script_symlink_path(config):
             return config.launcher_script_path.parent / config.appid
 
 
-def install(module_name, path=None, verbose=False):
+def install(module_name, path=None, verbose=False, no_fix_entry_points=False):
     """Add a shortcut to launch the app for the given module to the system menus, i.e
     the start menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS.
     If path is given, the shortcut will be created in the given directory instead. On
@@ -257,7 +257,8 @@ def install(module_name, path=None, verbose=False):
             # does not support gui_scripts, so those entry_points may have been
             # installed as console_scripts:
             dist = get_distribution_of_module(module_name)
-            fix_entry_points(dist)
+            if no_fix_entry_points:
+                fix_entry_points(dist)
     elif LINUX:
         symlink_path = _launcher_script_symlink_path(config)
         create_desktop_file(
