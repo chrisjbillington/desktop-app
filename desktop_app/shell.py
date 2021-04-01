@@ -257,7 +257,7 @@ def install(module_name, path=None, verbose=False, no_fix_entry_points=False):
             # does not support gui_scripts, so those entry_points may have been
             # installed as console_scripts:
             dist = get_distribution_of_module(module_name)
-            if no_fix_entry_points:
+            if not no_fix_entry_points:
                 fix_entry_points(dist)
     elif LINUX:
         symlink_path = _launcher_script_symlink_path(config)
