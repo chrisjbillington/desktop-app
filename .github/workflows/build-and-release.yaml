@@ -9,10 +9,6 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
-defaults:
-  run:
-    shell: bash -l {0}
-
 env:
   PACKAGE_NAME: desktop-app
   SCM_LOCAL_SCHEME: no-local-version
@@ -124,9 +120,9 @@ jobs:
         with:
           xcode-version: 11.7
 
-
       - name: Conda package (Unix)
         if: runner.os != 'Windows'
+        shell: bash -l {0}
         run: |
           conda install -c labscript-suite setuptools-conda
           setuptools-conda build $CONDA_BUILD_ARGS .
@@ -245,10 +241,12 @@ jobs:
           auto-update-conda: true
 
       - name: Install Anaconda cloud client
+        shell: bash -l {0}
         run: conda install anaconda-client
 
       - name: Publish to Anaconda test label
         if: github.event.ref_type != 'tag'
+        shell: bash -l {0}
         run: |
           anaconda \
             --token ${{ secrets.ANACONDA_API_TOKEN }} \
@@ -258,6 +256,7 @@ jobs:
             conda_packages/*/*
 
       - name: Publish to Anaconda main label
+        shell: bash -l {0}
         if: github.event.ref_type == 'tag'
         run: |
           anaconda \
