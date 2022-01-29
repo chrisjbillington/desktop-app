@@ -95,6 +95,7 @@ jobs:
           path: ./dist
 
       - name: Set Variables for Conda Build
+        shell: bash
         run: |
           if [ $NOARCH == true ]; then
               CONDA_BUILD_ARGS="--noarch"
