@@ -11,11 +11,10 @@ on:
 
 defaults:
   run:
-    shell: bash
+    shell: bash -l {0}
 
 env:
   PACKAGE_NAME: desktop-app
-  # SCM_VERSION_SCHEME: release-branch-semver
   SCM_LOCAL_SCHEME: no-local-version
   ANACONDA_USER: labscript-suite
 
@@ -82,15 +81,15 @@ jobs:
       - name: Source Distribution
         if: strategy.job-index == 0
         run: |
-          python -m pip install --upgrade pip setuptools wheel pep517
-          python -m pep517.build -s .
+          python -m pip install --upgrade pip setuptools wheel build
+          python -m build -s .
 
       - name: Wheel Distribution
         # Impure Linux wheels are built in the manylinux job.
         if: (env.PURE == 'true' && strategy.job-index == 0) || (env.PURE == 'false' && runner.os != 'Linux')
         run: |
-          python -m pip install --upgrade pip setuptools wheel pep517
-          python -m pep517.build -b .
+          python -m pip install --upgrade pip setuptools wheel build
+          python -m build -w .
 
       - name: Upload Artifact
         if: strategy.job-index == 0 || (env.PURE == 'false' && runner.os != 'Linux')
@@ -109,7 +108,10 @@ jobs:
           echo "CONDA_BUILD_ARGS=$CONDA_BUILD_ARGS" >> $GITHUB_ENV
 
       - name: Install Miniconda
-        uses: conda-incubator/setup-miniconda@v2
+        # We need https://github.com/conda-incubator/setup-miniconda/pull/189 in order
+        # to be able to install 32-bit miniconda on Windows. Once setup-miniconda 2.1.2
+        # is released with this fix, can change to @v2.
+        uses: conda-incubator/setup-miniconda@1a875d105ac03256664b54c882c8c374ce617ef6
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python }}
@@ -125,7 +127,6 @@ jobs:
 
       - name: Conda package (Unix)
         if: runner.os != 'Windows'
-        shell: bash -l {0}
         run: |
           conda install -c labscript-suite setuptools-conda
           setuptools-conda build $CONDA_BUILD_ARGS .
@@ -135,7 +136,7 @@ jobs:
         shell: cmd /C CALL {0}
         run: |
           conda install -c labscript-suite setuptools-conda && ^
-          setuptools-conda build %CONDA_BUILD_ARGS% .
+          setuptools-conda build %CONDA_BUILD_ARGS% --croot ${{ runner.temp }}\cb .
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v2
@@ -166,7 +167,7 @@ jobs:
 
       - name: Build Manylinux Wheels
         if: env.PURE == 'false'
-        uses: RalfG/python-wheels-manylinux-build@v0.2.2-manylinux2010_x86_64
+        uses: RalfG/python-wheels-manylinux-build@v0.4.0
         with:
           python-versions: ${{ matrix.python }}
 
@@ -196,7 +197,7 @@ jobs:
           path: ./conda_packages
 
       - name: Publish on TestPyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.testpypi }}
@@ -238,19 +239,17 @@ jobs:
           user: __token__
           password: ${{ secrets.pypi }}
 
-      - name: Install Miniconda and cloud client
-        run: |
-          curl -LO https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh 
-          bash Miniconda3-latest-Linux-x86_64.sh -b -p .miniconda
-          source .miniconda/etc/profile.d/conda.sh
-          conda activate
-          conda install anaconda-client
+      - name: Install Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+
+      - name: Install Anaconda cloud client
+        run: conda install anaconda-client
 
       - name: Publish to Anaconda test label
         if: github.event.ref_type != 'tag'
         run: |
-          source .miniconda/etc/profile.d/conda.sh
-          conda activate
           anaconda \
             --token ${{ secrets.ANACONDA_API_TOKEN }} \
             upload \
@@ -261,8 +260,6 @@ jobs:
       - name: Publish to Anaconda main label
         if: github.event.ref_type == 'tag'
         run: |
-          source .miniconda/etc/profile.d/conda.sh
-          conda activate
           anaconda \
             --token ${{ secrets.ANACONDA_API_TOKEN }} \
             upload \
