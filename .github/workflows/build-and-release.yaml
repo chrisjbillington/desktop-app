@@ -173,7 +173,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: dist
-          path: wheelhouse/*manylinux*.whl
+          path: dist/*manylinux*.whl
 
   release:
     name: Release
