@@ -219,3 +219,21 @@ def short_envname():
         if envname == 'venv':
             return None
         return envname
+
+def get_venv_executable_and_env(env=None):
+    """If we are running in a venv on Windows or MacOS such that sys.executable is a
+    shim to sys._base_executable, then return sys._base_executable, as well as the
+    environment that should be passed to sys._base_executable in order for it to know to
+    configure itself for the virtual environment instead of the base environment. This
+    allows us to skip the shim and thus have fewer layers in our process hierarchy. If
+    we are not in a venv, return sys.executable and the env as passed in. If env passed
+    in is None, and needs to be modified for the subprocess, a copy of os.environ(),
+    appropriately modified, will be returned."""
+    base_executable = getattr(sys, '_base_executable', sys.executable)
+    if Path(base_executable) != Path(sys.executable):
+        if env is None:
+            env = os.environ.copy()
+        env["__PYVENV_LAUNCHER__"] = str(sys.executable)
+        return base_executable, env
+    return sys.executable, env
+

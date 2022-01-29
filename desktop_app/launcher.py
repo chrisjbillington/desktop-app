@@ -9,6 +9,7 @@ from .environment import (
     activate_venv,
     get_package_directory,
     WINDOWS,
+    get_venv_executable_and_env,
 )
 
 
@@ -70,7 +71,8 @@ def entry_point():
         env = activate_venv(venv_prefix)
         popen_kwargs['env'] = env
 
-    python = Path(sys.executable)
+    python, popen_kwargs['env'] = get_venv_executable_and_env(popen_kwargs['env'])
+    python = Path(python)
     # Case-insensitive comparison requried on Windows
     if python.name.lower() == 'pythonw.exe':
         python = python.parent / 'python.exe'
