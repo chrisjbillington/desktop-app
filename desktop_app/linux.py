@@ -25,6 +25,7 @@ def get_user_applications():
 
 def create_desktop_file(path, target, display_name, icon_file, overwrite=True):
     path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     if not overwrite and path.exists():
         raise FileExistsError(path)
 
