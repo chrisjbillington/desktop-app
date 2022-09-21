@@ -71,7 +71,7 @@ def entry_point():
         env = activate_venv(venv_prefix)
         popen_kwargs['env'] = env
 
-    python, popen_kwargs['env'] = get_venv_executable_and_env(popen_kwargs['env'])
+    python, popen_kwargs['env'] = get_venv_executable_and_env(popen_kwargs.get('env'))
     python = Path(python)
     # Case-insensitive comparison requried on Windows
     if python.name.lower() == 'pythonw.exe':
