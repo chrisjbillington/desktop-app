@@ -2,7 +2,7 @@ import sys
 import os
 import site
 import sysconfig
-from importlib.machinery import PathFinder
+from importlib.util import find_spec
 import platform
 from functools import lru_cache
 from pathlib import Path
@@ -66,6 +66,14 @@ def _reverse_egg_link_lookup(directory):
                     if linkpath == directory.parent:
                         return sitedir
 
+    # For new PEP660-style editable installs, we instead look through sys.modules for
+    # modules with names starting with '__editable__', and inspect their MAPPING
+    # attribute:
+    for name, module in sys.modules.items():
+        if name.startswith('__editable__'):
+            if directory in [Path(s) for s in module.MAPPING.values()]:
+                return Path(module.__file__).parent
+
 
 def get_install_directory(module_name):
     """Return the installation directory of the module - an entry in the list of site
@@ -94,11 +102,7 @@ def get_scripts_dir(module_name):
 def get_package_directory(module_name):
     """Return Path of the package directory that the given module is in."""
     base_module = module_name.split('.', 1)[0]
-    # Find the import path of the package, excluding the `''` entry in `sys.path` so as
-    # to avoid the false positive of returning the CWD if the user is in the development
-    # directory (which may also be in the path for the case of an editable install,
-    # which is why we skip `''` specifically, and not anything that expands to CWD).
-    spec = PathFinder.find_spec(base_module, path=[p for p in sys.path if p])
+    spec = find_spec(base_module)
     if spec is None or spec.origin is None:
         raise ModuleNotFoundError(base_module)
     if not spec.parent:
