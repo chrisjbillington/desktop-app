@@ -60,19 +60,42 @@ def _reverse_egg_link_lookup(directory):
             for file in sitedir.iterdir():
                 if file.suffix == '.egg-link':
                     # The first line is the path to the .egg:
-                    linkpath = Path(file.read_text().splitlines()[0])
+                    linkpath = Path(file.read_text("utf8").splitlines()[0])
                     # is allowed to be relative to the containing dir:
                     linkpath = Path(sitedir, linkpath)
                     if linkpath == directory.parent:
                         return sitedir
 
-    # For new PEP660-style editable installs, we instead look through sys.modules for
+    # For new PEP660-style editable installs, we instead look a) through sys.modules for
     # modules with names starting with '__editable__', and inspect their MAPPING
-    # attribute:
+    # attribute, and b) through site_packages for __editable__*.pth files specifying a
+    # simple
     for name, module in sys.modules.items():
         if name.startswith('__editable__'):
             if directory in [Path(s) for s in module.MAPPING.values()]:
                 return Path(module.__file__).parent
+
+    # And now for src-layout packages.
+
+    # Bit of duplication here with the above code for .egg-link files. Prefer this to
+    # keep it separate.
+    for sitedir in _site_packages() + [_user_site_packages()]:
+        if not sitedir.is_dir():
+            continue
+        sitedir = Path(sitedir).absolute()
+        if sitedir.exists and sitedir.is_dir:
+            for file in sitedir.iterdir():
+                if file.name.startswith('__editable__') and file.suffix == '.pth':
+                    contents = file.read_text("utf8")
+                    if contents.startswith("import"):
+                        # This one's a dynamic loader, skip it.
+                        continue
+                    # The first line is the path to the .egg:
+                    linkpath = contents.strip()
+                    # is allowed to be relative to the containing dir:
+                    linkpath = Path(sitedir, linkpath)
+                    if linkpath == directory.parent:
+                        return sitedir
 
 
 def get_install_directory(module_name):
