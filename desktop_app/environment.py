@@ -141,7 +141,10 @@ def get_distribution_of_module(module_name):
         if distribution.files is None:
             continue
         for path in distribution.files:
-            if Path(path).parts[0] == base_module:
+            p = Path(path).parts[0]
+            if (p == base_module or # standard installation or pre-PEP660 editable
+                p.startswith(f'__editable__.{base_module:s}')): # PEP660 editable
+
                 return distribution.metadata['Name']
 
 
