@@ -1,3 +1,49 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools_scm"]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages]
+find = {namespaces = false}
+
+[project]
+name = "desktop-app"
+description = "OS menu shortcuts, correct taskbar behaviour, and environment activation for Python GUI apps"
+authors = [
+    {name = "Chris Billington", email = "chrisjbillington@gmail.com"}
+]
+keywords = [
+    "desktop",
+    "windows",
+    "launchers",
+    "taskbar",
+    "start-menu",
+]
+license = "BSD"
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "distlib",
+    "pywin32; sys_platform == 'win32'",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/chrisjbillington/desktop-app"
+
+[project.scripts]
+desktop-app = desktop_app.__main__:main
