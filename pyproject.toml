@@ -26,9 +26,9 @@ keywords = [
     "taskbar",
     "start-menu",
 ]
-license = "BSD"
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3 :: Only",
 ]
 requires-python = ">=3.8"
@@ -46,4 +46,4 @@ content-type = "text/markdown"
 Homepage = "https://github.com/chrisjbillington/desktop-app"
 
 [project.scripts]
-desktop-app = desktop_app.__main__:main
+desktop-app = "desktop_app.__main__:main"
