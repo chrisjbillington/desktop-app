@@ -7,6 +7,20 @@ import tempfile
 from pathlib import Path
 
 
+ICONSET_ENTRIES = [
+    (16, ""),
+    (16, "@2x"),
+    (32, ""),
+    (32, "@2x"),
+    (128, ""),
+    (128, "@2x"),
+    (256, ""),
+    (256, "@2x"),
+    (512, ""),
+    (512, "@2x"),
+]
+
+
 def get_user_applications():
     """Return the path to the per-user Applications directory."""
     return Path("~/Applications").expanduser()
@@ -70,18 +84,16 @@ def _create_icns(resources, icon_file, name, verbose):
     with tempfile.TemporaryDirectory() as tmpdir:
         iconset = Path(tmpdir) / f"{name}.iconset"
         iconset.mkdir()
-        for size in [16, 32, 128, 256, 512]:
-            for scale in [1, 2]:
-                pixels = size * scale
-                suffix = "" if scale == 1 else "@2x"
-                png = iconset / f"icon_{size}x{size}{suffix}.png"
-                if not _render_png(icon_file, png, pixels):
-                    if verbose:
-                        print(
-                            f"warning: could not create app icon from {icon_file}",
-                            file=sys.stderr,
-                        )
-                    return None
+        for size, scale_suffix in ICONSET_ENTRIES:
+            pixels = size * (2 if scale_suffix else 1)
+            png = iconset / f"icon_{size}x{size}{scale_suffix}.png"
+            if not _render_png(icon_file, png, pixels):
+                if verbose:
+                    print(
+                        f"warning: could not create app icon from {icon_file}",
+                        file=sys.stderr,
+                    )
+                return None
         try:
             subprocess.check_call(
                 ["iconutil", "--convert", "icns", "--output", str(output), str(iconset)]
@@ -90,7 +102,39 @@ def _create_icns(resources, icon_file, name, verbose):
             if verbose:
                 print(f"warning: could not create app icon: {e}", file=sys.stderr)
             return None
+        if not _icns_has_expected_entries(output):
+            if verbose:
+                print(
+                    f"warning: app icon is missing required resolutions: {output}",
+                    file=sys.stderr,
+                )
+            return None
     return output
+
+
+def _icns_has_expected_entries(icon_file):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        iconset = Path(tmpdir) / "icon.iconset"
+        try:
+            subprocess.check_call(
+                [
+                    "iconutil",
+                    "--convert",
+                    "iconset",
+                    "--output",
+                    str(iconset),
+                    str(icon_file),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return False
+        for size, scale_suffix in ICONSET_ENTRIES:
+            icon = iconset / f"icon_{size}x{size}{scale_suffix}.png"
+            if not icon.exists():
+                return False
+    return True
 
 
 def _render_png(icon_file, output, pixels):
