@@ -158,7 +158,16 @@ def _render_png(icon_file, output, pixels):
     with tempfile.TemporaryDirectory() as tmpdir:
         try:
             subprocess.check_call(
-                ["qlmanage", "-t", "-s", str(pixels), "-o", tmpdir, str(icon_file)],
+                [
+                    "qlmanage",
+                    "-t",
+                    "-x",
+                    "-s",
+                    str(pixels),
+                    "-o",
+                    tmpdir,
+                    str(icon_file),
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
