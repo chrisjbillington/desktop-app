@@ -58,12 +58,13 @@ class _ModuleConfig:
         self.product_name = config.get('product_name', None)
         module_config = config.get('modules', {}).get(module_name, {})
 
-        self.display_name = module_config.get('display_name', module_name)
-        self.short_display_name = module_config.get(
-            'short_display_name', self.display_name
-        )
-        self.display_name = self._add_env_suffix(self.display_name)
-        self.short_display_name = self._add_env_suffix(self.short_display_name)
+        env = short_envname()
+        suffix = f' ({env})' if env is not None else ''
+
+        display_name = module_config.get('display_name', module_name)
+        short_display_name = module_config.get('short_display_name', display_name)
+        self.display_name = display_name + suffix
+        self.short_display_name = short_display_name + suffix
 
         winicon = module_config.get('winicon', None)
         if winicon is None:
@@ -81,12 +82,6 @@ class _ModuleConfig:
 
         self.launcher_script_path = self._get_launcher_script_path()
         self.appid = self._get_appid()
-
-    def _add_env_suffix(self, display_name):
-        env = short_envname()
-        if env is not None:
-            display_name += f' ({env})'
-        return display_name
 
     def _load_config(self):
         """Load 'desktop-app.json' from the module package directory and return it. If
@@ -149,10 +144,12 @@ class _ModuleConfig:
         # Hash the install prefix so that we can include in the appid a segment unique
         # to the Python environment. Normalise the case first, since I've observed that
         # in within a venv sys.executable is all lower case.
-        if WINDOWS:
-            replacements = {' ': '', '_': '', '.': '-'}
+        if WINDOWS or MACOS:
             install_prefix = Path(os.path.normcase(sys.prefix))
             interpreter_hash = hashlib.sha256(bytes(install_prefix)).hexdigest()[:16]
+
+        if WINDOWS:
+            replacements = {' ': '', '_': '', '.': '-'}
             appid_parts = []
             for part in [self.org_name, self.module_name]:
                 if part is None:
@@ -165,8 +162,6 @@ class _ModuleConfig:
             return '.'.join(appid_parts)
         elif MACOS:
             replacements = {' ': '-', '_': '-', '.': '-'}
-            install_prefix = Path(os.path.normcase(sys.prefix))
-            interpreter_hash = hashlib.sha256(bytes(install_prefix)).hexdigest()[:16]
             appid_parts = []
             for part in [self.product_name or self.org_name, self.module_name]:
                 if part is None:

@@ -45,8 +45,6 @@ def create_app_bundle(
         "CFBundleDisplayName": display_name,
         "CFBundlePackageType": "APPL",
         "CFBundleInfoDictionaryVersion": "6.0",
-        "CFBundleShortVersionString": "1.0",
-        "CFBundleVersion": "1",
     }
     icon_path = _create_icns(resources, icon_file, executable_name, verbose)
     if icon_path is not None:
