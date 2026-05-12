@@ -4,28 +4,28 @@ from .shell import install, uninstall
 
 def main():
     parser = argparse.ArgumentParser(
-        description="""Create (or remove) a Start menu shortcut (Windows) or .desktop
-            file (Linux) to run the Python module of the given name. The package owning
-            the module must have configured appropriate entry_points for the module, and
-            either have a desktop-app.json specifying the location of the icon files to
-            use, or must have the files in the default locations. See the main
-            desktop-app documentation for details."""
+        description="""Create (or remove) a Start menu shortcut (Windows), .desktop
+            file (Linux), or .app bundle (macOS) to run the Python module of the given
+            name. The package owning the module must have configured appropriate
+            entry_points for the module, and either have a desktop-app.json specifying
+            the location of the icon files to use, or must have the files in the default
+            locations. See the main desktop-app documentation for details."""
     )
 
     parser.add_argument(
         action="store",
         choices=['install', 'uninstall'],
         dest="action",
-        help="""Whether to create (install) a shortcut or .desktop file, or to delete
-            (uninstall) an existing one.""",
+        help="""Whether to create (install) a shortcut, .desktop file, or .app bundle,
+            or to delete (uninstall) an existing one.""",
     )
     parser.add_argument(
         '--path',
         action="store",
         default=None,
-        help="""Directory to create/delete shortcut or .desktop file. If not given,
-            defaults to the Start menu on Windows, and to ~/.local/share/applications on
-            Linux.""",
+        help="""Directory to create/delete shortcut, .desktop file, or .app bundle. If
+            not given, defaults to the Start menu on Windows,
+            ~/.local/share/applications on Linux, and ~/Applications on macOS.""",
     )
 
     parser.add_argument(
