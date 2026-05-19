@@ -2,6 +2,8 @@ import sys
 import os
 import hashlib
 import json
+import re
+import shutil
 from pathlib import Path
 
 from .environment import (
@@ -22,7 +24,10 @@ from .windows import (
     refresh_shell_cache,
 )
 from .fix_entry_points import fix_entry_points
-from .linux import get_user_applications, create_desktop_file
+from .linux import get_user_applications as get_linux_user_applications
+from .linux import create_desktop_file
+from .macos import get_user_applications as get_macos_user_applications
+from .macos import create_app_bundle
 
 
 CONFIG_FILENAME = 'desktop-app.json'
@@ -50,12 +55,16 @@ class _ModuleConfig:
         config = self._load_config()
 
         self.org_name = config.get('org_name', None)
+        self.product_name = config.get('product_name', None)
         module_config = config.get('modules', {}).get(module_name, {})
 
-        self.display_name = module_config.get('display_name', module_name)
         env = short_envname()
-        if env is not None:
-            self.display_name += f' ({env})'
+        suffix = f' ({env})' if env is not None else ''
+
+        display_name = module_config.get('display_name', module_name)
+        short_display_name = module_config.get('short_display_name', display_name)
+        self.display_name = display_name + suffix
+        self.short_display_name = short_display_name + suffix
 
         winicon = module_config.get('winicon', None)
         if winicon is None:
@@ -121,17 +130,26 @@ class _ModuleConfig:
         it's slightly more important for it to be user-friendly as it will appear as the
         default window title in some GUI toolkits.
 
-        On macos it's the same as Linux, but this is likely to change when proper macos
-        support is introduced.
+        On macOS we use:
+
+        <ProductName>.<ModuleName>.python-<hexdigits>
+
+        ProductName falls back to OrgName and is omitted if neither is present. The
+        last field contains a hash of the path to the Python interpreter for the module,
+        ensuring the appid is unique to the Python environment. The first fields are
+        normalised to lower-case strings containing only alphanumeric characters and
+        hyphens.
 
         """
         # Hash the install prefix so that we can include in the appid a segment unique
         # to the Python environment. Normalise the case first, since I've observed that
         # in within a venv sys.executable is all lower case.
-        if WINDOWS:
-            replacements = {' ': '', '_': '', '.': '-'}
+        if WINDOWS or MACOS:
             install_prefix = Path(os.path.normcase(sys.prefix))
             interpreter_hash = hashlib.sha256(bytes(install_prefix)).hexdigest()[:16]
+
+        if WINDOWS:
+            replacements = {' ': '', '_': '', '.': '-'}
             appid_parts = []
             for part in [self.org_name, self.module_name]:
                 if part is None:
@@ -142,7 +160,21 @@ class _ModuleConfig:
                 appid_parts.append(camelcase_part)
             appid_parts.append(f'Python-{interpreter_hash}')
             return '.'.join(appid_parts)
-        else:  # TODO: consider macos
+        elif MACOS:
+            replacements = {' ': '-', '_': '-', '.': '-'}
+            appid_parts = []
+            for part in [self.product_name or self.org_name, self.module_name]:
+                if part is None:
+                    continue
+                appid_part = part.lower()
+                for a, b in replacements.items():
+                    appid_part = appid_part.replace(a, b)
+                appid_part = re.sub('[^a-z0-9-]', '', appid_part)
+                appid_part = re.sub('-+', '-', appid_part).strip('-')
+                appid_parts.append(appid_part)
+            appid_parts.append(f'python-{interpreter_hash}')
+            return '.'.join(appid_parts)
+        else:
             env = short_envname()
             if env is None:
                 return self.module_name
@@ -155,10 +187,9 @@ def set_process_appid(module_name):
     windows correctly, can be pinned etc."""
 
     config = _ModuleConfig.instance(module_name)
-    launcher = config.launcher_script_path
     if WINDOWS:
         set_process_appusermodel_id(config.appid)
-    else:
+    elif LINUX:
         # Most Linux GUI toolkits set the X WM_CLASS property from the basename of
         # sys.argv[0], so ensuring it matches the name of our .desktop file is
         # sufficient to get DEs to correctly identify our app windows. Hopefully the
@@ -177,7 +208,6 @@ def set_process_appid(module_name):
                 sys.argv[0] = str(symlink_path)
             else:
                 sys.argv[0] = str(config.launcher_script_path)
-    # TODO: consider macos
 
 
 def _default_shortcut_dir(config):
@@ -187,9 +217,12 @@ def _default_shortcut_dir(config):
             return path / config.org_name
         return path
     elif LINUX:
-        return get_user_applications()
+        return get_linux_user_applications()
     elif MACOS:
-        raise NotImplementedError
+        path = get_macos_user_applications()
+        if config.product_name is not None:
+            return path / config.product_name
+        return path
 
 
 def _shortcut_name(config):
@@ -198,22 +231,30 @@ def _shortcut_name(config):
     elif LINUX:
         return f'{config.appid}.desktop'
     elif MACOS:
-        raise NotImplementedError
+        return f'{config.short_display_name}.app'
 
 
 def _launcher_script_symlink_path(config):
-    if not WINDOWS and config.appid != config.module_name:
+    if LINUX and config.appid != config.module_name:
         if config.launcher_script_path is not None:
             return config.launcher_script_path.parent / config.appid
 
 
+def _delete_path(path):
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
 def install(module_name, path=None, verbose=False, no_fix_entry_points=False):
     """Add a shortcut to launch the app for the given module to the system menus, i.e
-    the start menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS.
-    If path is given, the shortcut will be created in the given directory instead. On
-    Linux, in order to ensure the name of the shortcut (which may contain the name of a
-    conda or virtual environment) matches the name of the executable it points to, a
-    symbolic link called `<module_name>-<envname>` will be created."""
+    the start menu on Windows, ~/.local/share/applications on Linux, and
+    ~/Applications on macOS. If path is given, the shortcut will be created in the given
+    directory instead. On Linux, in order to ensure the name of the shortcut (which may
+    contain the name of a conda or virtual environment) matches the name of the
+    executable it points to, a symbolic link called `<module_name>-<envname>` will be
+    created."""
     config = _ModuleConfig.instance(module_name)
     if config.launcher_script_path is None:
         msg = f"""The package providing the module {module_name} is not installed to the
@@ -231,7 +272,7 @@ def install(module_name, path=None, verbose=False, no_fix_entry_points=False):
         if verbose:
             msg = f'warning: overwriting existing file {shortcut_path}'
             print(msg, file=sys.stderr)
-        shortcut_path.unlink()
+        _delete_path(shortcut_path)
     if WINDOWS:
         create_shortcut(
             shortcut_path,
@@ -282,13 +323,23 @@ def install(module_name, path=None, verbose=False, no_fix_entry_points=False):
                     + f'{config.launcher_script_path.name}'
                 )
     elif MACOS:
-        raise NotImplementedError
+        create_app_bundle(
+            shortcut_path,
+            target=config.launcher_script_path,
+            display_name=config.short_display_name,
+            executable_name=config.module_name,
+            bundle_identifier=config.appid,
+            icon_file=config.icon,
+            verbose=verbose,
+        )
+        if verbose:
+            print(f' -> created {shortcut_path}')
 
 
 def uninstall(module_name, path=None, verbose=False):
     """Remove the app shortcut for the given module from the system menus, i.e the start
-    menu on Windows, ~/.local/share/applications on Linux, and TODO on macOS. If a
-    symlink was created within the scripts folder in install(), delete it."""
+    menu on Windows, ~/.local/share/applications on Linux, and ~/Applications on macOS.
+    If a symlink was created within the scripts folder in install(), delete it."""
     config = _ModuleConfig.instance(module_name)
     if path is not None:
         path = Path(path)
@@ -300,7 +351,7 @@ def uninstall(module_name, path=None, verbose=False):
         files_to_delete.append(symlink_path)
     for file in files_to_delete:
         try:
-            file.unlink()
+            _delete_path(file)
             if verbose:
                 print(f' -> deleted {file}')
         except FileNotFoundError:

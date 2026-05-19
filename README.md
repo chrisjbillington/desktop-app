@@ -3,7 +3,7 @@ desktop-app
 
 `desktop-app` simplifies making a Python GUI application install, launch, and behave in
 a standard way with respect to the application menus and the taskbar in Windows and
-Linux (Macos support planned).
+Linux, and as a native application bundle on macOS.
 
 If your application is a Python module runnable from the command line as `python -m
 mymodule`, then with minimal configuration `desktop-app` can:
@@ -11,8 +11,8 @@ mymodule`, then with minimal configuration `desktop-app` can:
 * Create a launcher script (or `.exe` on windows) that runs your application
     * after activating a `conda` env or virtual environment, if any
     * with a hidden console if on Windows
-* Install a start menu shortcut (Windows) or `.desktop` file (Linux) to launch your
-  application from your desktop applications menu
+* Install a start menu shortcut (Windows), `.desktop` file (Linux), or `.app` bundle
+  (macOS) to launch your application from your desktop applications menu
 * Ensure your application appears in the taskbar with the correct name and icon,
   and can be pinned correctly.
 
@@ -96,4 +96,3 @@ However, even on other platforms activating the environment simplifies running o
 programs that might be installed to the `bin`/`Scripts` directory of the virtual
 environment - calling code would otherwise have to manually find this directory and
 provide the full path to the programs it wants to run.
-
