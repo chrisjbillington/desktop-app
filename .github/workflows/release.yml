@@ -10,7 +10,7 @@ on:
 
 env:
   OS_LIST_UBUNTU: '["ubuntu-latest"]'
-  OS_LIST_ALL: '["ubuntu-latest", "windows-latest", "macos-latest", "macos-15-intel"]'
+  OS_LIST_ALL: '["ubuntu-latest", "windows-2022", "macos-latest", "macos-15-intel"]'
 
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -43,7 +43,7 @@ jobs:
         run: git tag -d $(git tag --points-at HEAD)
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -222,7 +222,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -231,7 +231,7 @@ jobs:
         run: git tag -d $(git tag --points-at HEAD)
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
@@ -252,14 +252,14 @@ jobs:
 
       - name: Upload artifact
         if: env.PURE == 'false' || strategy.job-index == 0
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-${{ matrix.os }}
           path: ./dist
           if-no-files-found: error
 
       - name: Install Miniforge
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: "latest"
           auto-update-conda: true
@@ -278,7 +278,7 @@ jobs:
           setuptools-conda build $CONDA_BUILD_ARGS .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: conda_packages-${{ matrix.os }}
           path: ./conda_packages
@@ -298,7 +298,7 @@ jobs:
 
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist*
           path: ./dist
@@ -332,7 +332,7 @@ jobs:
 
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist*
           path: ./dist
@@ -362,7 +362,7 @@ jobs:
 
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist*
           path: ./dist
@@ -383,14 +383,14 @@ jobs:
 
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: conda_packages-*
           path: ./conda_packages
           merge-multiple: true
 
       - name: Install Miniforge
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: "latest"
           auto-update-conda: true
@@ -422,14 +422,14 @@ jobs:
 
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: conda_packages-*
           path: ./conda_packages
           merge-multiple: true
 
       - name: Install Miniforge
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: "latest"
           auto-update-conda: true
