@@ -1,9 +1,6 @@
 import sys
 import sysconfig
-try:
-    import importlib.metadata as importlib_metadata
-except ImportError:
-    import importlib_metadata
+import importlib.metadata
 from distlib.scripts import ScriptMaker
 
 
@@ -20,7 +17,7 @@ def fix_entry_points(*distribution_names):
 
     for name in distribution_names:
         # Get the script specs and format them how Scriptmaker wants them
-        distribution = importlib_metadata.Distribution.from_name(name)
+        distribution = importlib.metadata.Distribution.from_name(name)
 
         # I've seen enough bugs with entry_points in conda that I feel the need to
         # clobber its console_scripts too, even though they are officially supported:
