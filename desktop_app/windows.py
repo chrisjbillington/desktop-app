@@ -4,12 +4,10 @@ from subprocess import list2cmdline, call, Popen, PIPE, DEVNULL
 from .environment import WINDOWS
 
 
-if WINDOWS:
-    # Allow importing this module on other platforms even though the functions will fail
-    from win32com.shell import shell, shellcon
-    from win32com.client import Dispatch
-    from win32com.propsys import propsys, pscon
-    from .wineventhook import sethook
+# pywin32 and the wineventhook extension are imported inside the functions that use
+# them, so that importing desktop_app loads neither. The launcher entry point runs
+# before the conda env or virtualenv is activated for the child process, and must not
+# import anything that can resolve to a different Python installation.
 
 
 def _checkwindows():
@@ -21,6 +19,8 @@ def _checkwindows():
 def get_start_menu():
     """Return the path for Start menu entries for user-installed programs"""
     _checkwindows()
+    from win32com.client import Dispatch
+
     return Path(Dispatch('WScript.Shell').SpecialFolders("Programs"))
 
 
@@ -36,6 +36,9 @@ def unredirect_appdata(path):
     # ultimately came into the Python interpreter via an environment variable). Then we
     # launch non-python subprocesses to do the file copying for us, since the
     # subprocesses aren't subject to the redirect.
+    _checkwindows()
+    from win32com.client import Dispatch
+
     real_path = Path(path)
     real_appdata = Path(Dispatch('WScript.Shell').SpecialFolders("AppData"))
     sandbox_appdata = Path(site.USER_BASE).parent / real_appdata.name
@@ -69,9 +72,13 @@ def create_shortcut(
     """Create a Windows shortcut at the given path, which should be a filepath ending in
     '.lnk'. Arguments should be a list or tuple of arguments - not a single string of
     arguments separated by spaces."""
+    _checkwindows()
+    from win32com.shell import shellcon
+    from win32com.client import Dispatch
+    from win32com.propsys import propsys, pscon
+
     shortcut_path = Path(shortcut_path)
     shortcut_path.parent.mkdir(parents=True, exist_ok=True)
-    _checkwindows()
     objShell = Dispatch('WScript.Shell')
     shortcut = objShell.CreateShortcut(str(shortcut_path))
     shortcut.TargetPath = str(target)
@@ -97,6 +104,9 @@ def create_shortcut(
 
 
 def refresh_shell_cache():
+    _checkwindows()
+    from win32com.shell import shell, shellcon
+
     # Refresh the icon cache:
     shell.SHChangeNotify(
         shellcon.SHCNE_ASSOCCHANGED,
@@ -111,4 +121,6 @@ def set_process_appusermodel_id(appid):
     # shell.SetCurrentProcessExplicitAppUserModelID(appid)
     if not isinstance(appid, str) or len(appid) >= 1024:
         raise TypeError('appid must be a str of len < 1024')
+    from .wineventhook import sethook
+
     sethook(appid)
