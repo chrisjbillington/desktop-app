@@ -38,9 +38,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ignore Tags for non-tag pushes
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: git tag -d $(git tag --points-at HEAD)
+      - name: Ignore tags other than the pushed tag
+        # The version comes from the tags at HEAD, so a commit that carries both an rc
+        # tag and a final tag builds the version of the tag that was pushed, and a branch
+        # push of a tagged commit builds a development version.
+        run: git tag -d $(git tag --points-at HEAD | grep -vx "${GITHUB_REF_NAME}" || true)
 
       - name: Install Python
         uses: actions/setup-python@v6
@@ -226,9 +228,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ignore Tags for non-tag pushes
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: git tag -d $(git tag --points-at HEAD)
+      - name: Ignore tags other than the pushed tag
+        # The version comes from the tags at HEAD, so a commit that carries both an rc
+        # tag and a final tag builds the version of the tag that was pushed, and a branch
+        # push of a tagged commit builds a development version.
+        run: git tag -d $(git tag --points-at HEAD | grep -vx "${GITHUB_REF_NAME}" || true)
 
       - name: Install Python
         uses: actions/setup-python@v6
@@ -305,7 +309,7 @@ jobs:
           merge-multiple: true
 
       - name: Create GitHub release and upload release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
