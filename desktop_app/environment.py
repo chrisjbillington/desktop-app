@@ -248,16 +248,20 @@ def short_envname():
         return envname
 
 def get_venv_executable_and_env(env=None):
-    """If we are running in a venv on Windows or MacOS such that sys.executable is a
-    shim to sys._base_executable, then return sys._base_executable, as well as the
-    environment that should be passed to sys._base_executable in order for it to know to
-    configure itself for the virtual environment instead of the base environment. This
-    allows us to skip the shim and thus have fewer layers in our process hierarchy. If
-    we are not in a venv, return sys.executable and the env as passed in. If env passed
-    in is None, and needs to be modified for the subprocess, a copy of os.environ(),
-    appropriately modified, will be returned."""
+    """Return the executable with which to start a Python subprocess, and the
+    environment to pass to it. On Windows in a venv, sys.executable is a launcher that
+    runs sys._base_executable as a child process; to skip that extra process, return
+    sys._base_executable and an environment with __PYVENV_LAUNCHER__ set, which tells
+    it to configure itself for the venv, as the launcher would. Otherwise return
+    sys.executable and env as passed in. If env is None and needs to be modified for the
+    subprocess, a copy of os.environ, appropriately modified, is returned.
+
+    On macOS the venv's python is either a symlink to the framework's bin/python3.x
+    stub or a copy of it, and the stub execs the interpreter with __PYVENV_LAUNCHER__
+    set to its own path, so there is no extra process to skip and running
+    sys._base_executable would give a subprocess that does not see the venv."""
     base_executable = getattr(sys, '_base_executable', sys.executable)
-    if Path(base_executable) != Path(sys.executable):
+    if WINDOWS and Path(base_executable) != Path(sys.executable):
         if env is None:
             env = os.environ.copy()
         env["__PYVENV_LAUNCHER__"] = str(sys.executable)
