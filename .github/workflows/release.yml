@@ -267,10 +267,7 @@ jobs:
       - name: Install Miniforge
         uses: conda-incubator/setup-miniconda@v4
         with:
-          # Pinned because 26.9.4-0 fails at conda init on Windows:
-          # https://github.com/conda-forge/miniforge/issues/913
-          # Return to "latest" once that issue is fixed.
-          miniforge-version: "26.7.2-1"
+          miniforge-version: "latest"
           auto-update-conda: true
           conda-remove-defaults: true
           auto-activate: true
@@ -401,10 +398,7 @@ jobs:
       - name: Install Miniforge
         uses: conda-incubator/setup-miniconda@v4
         with:
-          # Pinned because 26.9.4-0 fails at conda init on Windows:
-          # https://github.com/conda-forge/miniforge/issues/913
-          # Return to "latest" once that issue is fixed.
-          miniforge-version: "26.7.2-1"
+          miniforge-version: "latest"
           auto-update-conda: true
           conda-remove-defaults: true
           auto-activate: true
@@ -443,10 +437,7 @@ jobs:
       - name: Install Miniforge
         uses: conda-incubator/setup-miniconda@v4
         with:
-          # Pinned because 26.9.4-0 fails at conda init on Windows:
-          # https://github.com/conda-forge/miniforge/issues/913
-          # Return to "latest" once that issue is fixed.
-          miniforge-version: "26.7.2-1"
+          miniforge-version: "latest"
           auto-update-conda: true
           conda-remove-defaults: true
           auto-activate: true
